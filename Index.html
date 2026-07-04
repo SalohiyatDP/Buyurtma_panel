@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="uz">
+  <head>
+    <base target="_top">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <?!= include('Styles'); ?>
+  </head>
+  <body>
+    <div class="app">
+
+      <!-- ============ LOGIN SAHIFASI ============ -->
+      <section id="loginView" class="view active">
+        <div class="card auth-card">
+          <div class="brand">
+            <div class="brand-icon">🔑</div>
+            <h1>Buyurtma paneli</h1>
+            <p class="muted">Davom etish uchun telefon raqamingizni kiriting</p>
+          </div>
+
+          <!-- 1-qadam: telefon -->
+          <div id="phoneStep">
+            <label class="field-label" for="phoneInput">Telefon raqami</label>
+            <input
+              id="phoneInput"
+              class="input"
+              type="tel"
+              inputmode="numeric"
+              value="+998"
+              placeholder="+998 90 123 45 67"
+              autocomplete="tel">
+            <button id="phoneBtn" class="btn btn-primary btn-block">Kirish</button>
+          </div>
+
+          <!-- 2-qadam: parol (faqat admin uchun) -->
+          <div id="passwordStep" class="hidden">
+            <div class="info-line">
+              <span id="adminPhoneLabel" class="muted"></span>
+              <button id="changePhoneBtn" class="link-btn" type="button">o'zgartirish</button>
+            </div>
+            <label class="field-label" for="passwordInput">Parol</label>
+            <input id="passwordInput" class="input" type="password" placeholder="Parolni kiriting">
+            <button id="passwordBtn" class="btn btn-primary btn-block">Kirish</button>
+          </div>
+
+          <div id="loginMsg" class="msg"></div>
+        </div>
+      </section>
+
+      <!-- ============ BUYURTMA PANELI ============ -->
+      <section id="orderView" class="view">
+        <header class="topbar">
+          <div class="topbar-title">
+            <span class="topbar-icon">🛒</span>
+            <div>
+              <strong>Buyurtma paneli</strong>
+              <div id="orderUserPhone" class="muted small"></div>
+            </div>
+          </div>
+          <button class="btn btn-ghost logout-btn" onclick="logout()">Chiqish</button>
+        </header>
+
+        <div class="content">
+          <!-- Mavjud buyurtma holati -->
+          <div id="existingOrderBox" class="card hidden">
+            <h2 class="section-title">Sizning buyurtmangiz</h2>
+            <div id="existingOrderDetails" class="order-details"></div>
+          </div>
+
+          <!-- Buyurtma formasi -->
+          <div id="orderFormBox" class="card">
+            <h2 id="orderFormTitle" class="section-title">Yangi buyurtma berish</h2>
+
+            <label class="field-label" for="fioInput">Buyurtmachi F.I.O <span class="req">*</span></label>
+            <input id="fioInput" class="input" type="text" placeholder="Familiya Ism Otasining ismi">
+
+            <label class="field-label" for="productKeyInput">Product Key <span class="req">*</span></label>
+            <input id="productKeyInput" class="input" type="text" placeholder="Mahsulot kaliti">
+
+            <label class="field-label" for="muddatiSelect">Muddati <span class="req">*</span></label>
+            <select id="muddatiSelect" class="input">
+              <option value="">— Tanlang —</option>
+            </select>
+
+            <div id="priceHint" class="price-hint hidden"></div>
+
+            <label class="field-label" for="tolovKartasiInput">To'lov kartasi <span class="req">*</span></label>
+            <input id="tolovKartasiInput" class="input" type="text" placeholder="Muddat tanlanganda avtomatik to'ladi" readonly>
+
+            <label class="field-label" for="tolovVaqtiInput">To'lov vaqti <span class="req">*</span></label>
+            <input id="tolovVaqtiInput" class="input" type="datetime-local">
+
+            <button id="submitOrderBtn" class="btn btn-primary btn-block">Buyurtma berish</button>
+            <div id="orderMsg" class="msg"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ ADMIN PANELI ============ -->
+      <section id="adminView" class="view">
+        <header class="topbar">
+          <div class="topbar-title">
+            <span class="topbar-icon">🛠️</span>
+            <div>
+              <strong>Boshqaruv paneli</strong>
+              <div class="muted small">Administrator</div>
+            </div>
+          </div>
+          <div class="topbar-actions">
+            <button class="btn btn-ghost" onclick="loadAdminOrders()">Yangilash</button>
+            <button class="btn btn-ghost logout-btn" onclick="logout()">Chiqish</button>
+          </div>
+        </header>
+
+        <div class="content">
+          <div class="stats" id="adminStats"></div>
+
+          <div class="card">
+            <div class="table-toolbar">
+              <h2 class="section-title">Barcha buyurtmalar</h2>
+              <input id="adminSearch" class="input search" type="text" placeholder="Qidirish (FIO, telefon...)">
+            </div>
+            <div class="table-wrap">
+              <table class="table" id="ordersTable">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>F.I.O</th>
+                    <th>Telefon</th>
+                    <th>Product Key</th>
+                    <th>Muddati</th>
+                    <th>To'lov kartasi</th>
+                    <th>To'lov vaqti</th>
+                    <th>Activation Key</th>
+                    <th>Amal</th>
+                  </tr>
+                </thead>
+                <tbody id="ordersTbody"></tbody>
+              </table>
+            </div>
+            <div id="adminEmpty" class="empty hidden">Buyurtmalar mavjud emas.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Umumiy yuklanish overlay -->
+      <div id="loader" class="loader hidden"><div class="spinner"></div></div>
+    </div>
+
+    <?!= include('JavaScript'); ?>
+  </body>
+</html>

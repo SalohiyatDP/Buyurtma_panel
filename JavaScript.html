@@ -1,0 +1,425 @@
+<script>
+  // ===== Global holat =====
+  var state = {
+    phone: '',
+    isAdmin: false,
+    pricing: [],
+    adminOrders: []
+  };
+
+  // ===== Yordamchilar =====
+  function $(id) { return document.getElementById(id); }
+
+  function showView(id) {
+    var views = document.querySelectorAll('.view');
+    for (var i = 0; i < views.length; i++) views[i].classList.remove('active');
+    $(id).classList.add('active');
+    window.scrollTo(0, 0);
+  }
+
+  function showLoader(on) {
+    $('loader').classList.toggle('hidden', !on);
+  }
+
+  function setMsg(id, text, type) {
+    var el = $(id);
+    el.textContent = text || '';
+    el.className = 'msg' + (type ? ' ' + type : '');
+  }
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  // Telefonni formatlash: faqat "+998" bilan boshlanishiga majbur qiladi
+  function normalizePhoneInput(el) {
+    var digits = el.value.replace(/\D/g, '');
+    if (digits.indexOf('998') === 0) digits = digits.substring(3);
+    digits = digits.substring(0, 9);
+    el.value = '+998' + (digits ? ' ' + digits : '');
+  }
+
+  // ===== 1-QADAM: TELEFON =====
+  function submitPhone() {
+    var phone = $('phoneInput').value;
+    var digits = phone.replace(/\D/g, '');
+    if (digits.length < 12) { // 998 + 9 raqam
+      setMsg('loginMsg', 'Iltimos, to\'liq telefon raqamini kiriting (+998 XX XXX XX XX).', 'error');
+      return;
+    }
+    setMsg('loginMsg', '');
+    $('phoneBtn').disabled = true;
+    showLoader(true);
+
+    google.script.run
+      .withSuccessHandler(function (res) {
+        showLoader(false);
+        $('phoneBtn').disabled = false;
+        if (!res.ok) {
+          setMsg('loginMsg', res.message, 'error');
+          return;
+        }
+        state.phone = res.phone;
+        state.isAdmin = res.isAdmin;
+        if (res.isAdmin) {
+          // Admin -> parol so'raymiz
+          $('adminPhoneLabel').textContent = phone;
+          $('phoneStep').classList.add('hidden');
+          $('passwordStep').classList.remove('hidden');
+          $('passwordInput').focus();
+        } else {
+          // Oddiy foydalanuvchi -> buyurtma paneli
+          openOrderPanel();
+        }
+      })
+      .withFailureHandler(function (err) {
+        showLoader(false);
+        $('phoneBtn').disabled = false;
+        setMsg('loginMsg', 'Server xatosi: ' + err.message, 'error');
+      })
+      .checkPhone(phone);
+  }
+
+  // ===== 2-QADAM: PAROL (admin) =====
+  function submitPassword() {
+    var pass = $('passwordInput').value;
+    if (!pass) {
+      setMsg('loginMsg', 'Parolni kiriting.', 'error');
+      return;
+    }
+    setMsg('loginMsg', '');
+    $('passwordBtn').disabled = true;
+    showLoader(true);
+
+    google.script.run
+      .withSuccessHandler(function (res) {
+        showLoader(false);
+        $('passwordBtn').disabled = false;
+        if (!res.ok) {
+          setMsg('loginMsg', res.message, 'error');
+          return;
+        }
+        openAdminPanel();
+      })
+      .withFailureHandler(function (err) {
+        showLoader(false);
+        $('passwordBtn').disabled = false;
+        setMsg('loginMsg', 'Server xatosi: ' + err.message, 'error');
+      })
+      .verifyAdminPassword(state.phone, pass);
+  }
+
+  function backToPhone() {
+    $('passwordStep').classList.add('hidden');
+    $('phoneStep').classList.remove('hidden');
+    $('passwordInput').value = '';
+    setMsg('loginMsg', '');
+  }
+
+  // ===== BUYURTMA PANELI =====
+  function openOrderPanel() {
+    showView('orderView');
+    $('orderUserPhone').textContent = '+' + state.phone.replace(/^998/, '998 ');
+    showLoader(true);
+
+    // Narxlanish va foydalanuvchi buyurtmalarini parallel yuklaymiz
+    google.script.run
+      .withSuccessHandler(function (pricing) {
+        state.pricing = pricing || [];
+        fillMuddatiSelect();
+        loadUserOrders();
+      })
+      .withFailureHandler(function (err) {
+        showLoader(false);
+        setMsg('orderMsg', 'Narxlarni yuklashda xatolik: ' + err.message, 'error');
+      })
+      .getPricing();
+  }
+
+  function fillMuddatiSelect() {
+    var sel = $('muddatiSelect');
+    sel.innerHTML = '<option value="">— Tanlang —</option>';
+    state.pricing.forEach(function (p) {
+      var opt = document.createElement('option');
+      opt.value = p.muddat;
+      opt.textContent = p.muddat + ' — ' + p.qiymati;
+      sel.appendChild(opt);
+    });
+  }
+
+  function onMuddatiChange() {
+    var val = $('muddatiSelect').value;
+    var item = state.pricing.filter(function (p) { return p.muddat === val; })[0];
+    if (item) {
+      $('tolovKartasiInput').value = item.karta;
+      $('priceHint').classList.remove('hidden');
+      $('priceHint').innerHTML = 'Narx: <strong>' + escapeHtml(item.qiymati) +
+        '</strong><br>To\'lov uchun karta: <strong>' + escapeHtml(item.karta) + '</strong>';
+    } else {
+      $('tolovKartasiInput').value = '';
+      $('priceHint').classList.add('hidden');
+    }
+  }
+
+  function loadUserOrders() {
+    google.script.run
+      .withSuccessHandler(function (orders) {
+        showLoader(false);
+        renderOrderPanel(orders || []);
+      })
+      .withFailureHandler(function (err) {
+        showLoader(false);
+        setMsg('orderMsg', 'Buyurtmalarni yuklashda xatolik: ' + err.message, 'error');
+      })
+      .getUserOrders(state.phone);
+  }
+
+  function renderOrderPanel(orders) {
+    var latest = orders.length ? orders[0] : null;
+    var box = $('existingOrderBox');
+    var formBox = $('orderFormBox');
+    var hasActivation = latest && latest.activationKey && latest.activationKey.trim() !== '';
+
+    if (latest) {
+      box.classList.remove('hidden');
+      var badge = hasActivation
+        ? '<span class="badge badge-active">Faollashtirilgan</span>'
+        : '<span class="badge badge-pending">Kutilmoqda</span>';
+
+      var html = '';
+      html += detailRow('Holati', badge, true);
+      html += detailRow('Buyurtmachi F.I.O', escapeHtml(latest.fio));
+      html += detailRow('Product Key', escapeHtml(latest.productKey));
+      html += detailRow('Muddati', escapeHtml(latest.muddati));
+      html += detailRow('To\'lov kartasi', escapeHtml(latest.tolovKartasi));
+      html += detailRow('To\'lov vaqti', escapeHtml(latest.tolovVaqti));
+      if (hasActivation) {
+        html += detailRow('Activation Key', '<strong style="color:#166534">' + escapeHtml(latest.activationKey) + '</strong>', true);
+      }
+      $('existingOrderDetails').innerHTML = html;
+    } else {
+      box.classList.add('hidden');
+    }
+
+    if (hasActivation) {
+      // Activation_key mavjud -> "Qayta buyurtma berish" tugmasi
+      formBox.classList.add('hidden');
+      // existingOrderBox ichiga qayta buyurtma tugmasini qo'shamiz
+      var reBtn = '<button class="btn btn-warning btn-block" onclick="startReorder()">Qayta buyurtma berish</button>';
+      $('existingOrderDetails').innerHTML += reBtn;
+    } else {
+      // Activation_key bo'sh -> majburiy maydonlar + "Buyurtma berish"
+      formBox.classList.remove('hidden');
+      $('orderFormTitle').textContent = latest ? 'Buyurtma ma\'lumotlari' : 'Yangi buyurtma berish';
+      $('submitOrderBtn').textContent = 'Buyurtma berish';
+      prefillForm(latest);
+    }
+  }
+
+  function detailRow(k, v, isHtml) {
+    return '<div class="detail-row"><span class="k">' + escapeHtml(k) +
+      '</span><span class="v">' + (isHtml ? v : escapeHtml(v)) + '</span></div>';
+  }
+
+  function prefillForm(order) {
+    if (order) {
+      $('fioInput').value = order.fio || '';
+      $('productKeyInput').value = order.productKey || '';
+      $('muddatiSelect').value = order.muddati || '';
+      onMuddatiChange();
+    }
+    setDefaultTolovVaqti();
+  }
+
+  function setDefaultTolovVaqti() {
+    if ($('tolovVaqtiInput').value) return;
+    var now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    $('tolovVaqtiInput').value = now.toISOString().slice(0, 16);
+  }
+
+  // "Qayta buyurtma berish": bo'sh formani ochamiz
+  function startReorder() {
+    $('orderFormBox').classList.remove('hidden');
+    $('orderFormTitle').textContent = 'Qayta buyurtma berish';
+    $('submitOrderBtn').textContent = 'Buyurtma berish';
+    $('fioInput').value = '';
+    $('productKeyInput').value = '';
+    $('muddatiSelect').value = '';
+    $('tolovKartasiInput').value = '';
+    $('priceHint').classList.add('hidden');
+    $('tolovVaqtiInput').value = '';
+    setDefaultTolovVaqti();
+    $('orderFormBox').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  function submitOrder() {
+    var data = {
+      phone: state.phone,
+      fio: $('fioInput').value.trim(),
+      productKey: $('productKeyInput').value.trim(),
+      muddati: $('muddatiSelect').value,
+      tolovKartasi: $('tolovKartasiInput').value.trim(),
+      tolovVaqti: $('tolovVaqtiInput').value.trim()
+    };
+
+    // Mijoz tomonida validatsiya
+    if (!data.fio) return setMsg('orderMsg', 'Buyurtmachi F.I.O ni kiriting.', 'error');
+    if (!data.productKey) return setMsg('orderMsg', 'Product Key ni kiriting.', 'error');
+    if (!data.muddati) return setMsg('orderMsg', 'Muddatini tanlang.', 'error');
+    if (!data.tolovKartasi) return setMsg('orderMsg', 'To\'lov kartasi aniqlanmadi.', 'error');
+    if (!data.tolovVaqti) return setMsg('orderMsg', 'To\'lov vaqtini kiriting.', 'error');
+
+    setMsg('orderMsg', '');
+    $('submitOrderBtn').disabled = true;
+    showLoader(true);
+
+    google.script.run
+      .withSuccessHandler(function (res) {
+        showLoader(false);
+        $('submitOrderBtn').disabled = false;
+        if (!res.ok) {
+          setMsg('orderMsg', res.message, 'error');
+          return;
+        }
+        setMsg('orderMsg', res.message, 'success');
+        // Panelni yangilaymiz
+        loadUserOrders();
+      })
+      .withFailureHandler(function (err) {
+        showLoader(false);
+        $('submitOrderBtn').disabled = false;
+        setMsg('orderMsg', 'Server xatosi: ' + err.message, 'error');
+      })
+      .submitOrder(data);
+  }
+
+  // ===== ADMIN PANELI =====
+  function openAdminPanel() {
+    showView('adminView');
+    loadAdminOrders();
+  }
+
+  function loadAdminOrders() {
+    showLoader(true);
+    google.script.run
+      .withSuccessHandler(function (orders) {
+        showLoader(false);
+        state.adminOrders = orders || [];
+        renderAdminStats();
+        renderAdminTable(state.adminOrders);
+      })
+      .withFailureHandler(function (err) {
+        showLoader(false);
+        alert('Buyurtmalarni yuklashda xatolik: ' + err.message);
+      })
+      .getAllOrders();
+  }
+
+  function renderAdminStats() {
+    var total = state.adminOrders.length;
+    var active = state.adminOrders.filter(function (o) {
+      return o.activationKey && o.activationKey.trim() !== '';
+    }).length;
+    var pending = total - active;
+    $('adminStats').innerHTML =
+      statCard(total, 'Jami buyurtmalar') +
+      statCard(pending, 'Kutilmoqda') +
+      statCard(active, 'Faollashtirilgan');
+  }
+
+  function statCard(num, lbl) {
+    return '<div class="stat-card"><div class="num">' + num + '</div><div class="lbl">' + lbl + '</div></div>';
+  }
+
+  function renderAdminTable(orders) {
+    var tbody = $('ordersTbody');
+    tbody.innerHTML = '';
+    if (!orders.length) {
+      $('adminEmpty').classList.remove('hidden');
+      return;
+    }
+    $('adminEmpty').classList.add('hidden');
+
+    orders.forEach(function (o, idx) {
+      var hasKey = o.activationKey && o.activationKey.trim() !== '';
+      var tr = document.createElement('tr');
+      var actionCell;
+      if (hasKey) {
+        actionCell = '<span class="badge badge-active">' + escapeHtml(o.activationKey) + '</span>';
+      } else {
+        actionCell = '<div class="key-cell">' +
+          '<input class="key-input" id="key_' + o.row + '" placeholder="Kalit...">' +
+          '<button class="btn btn-primary btn-sm" onclick="saveActivation(' + o.row + ')">Saqlash</button>' +
+          '</div>';
+      }
+      tr.innerHTML =
+        '<td>' + (idx + 1) + '</td>' +
+        '<td>' + escapeHtml(o.fio) + '</td>' +
+        '<td>' + escapeHtml(o.telefon) + '</td>' +
+        '<td>' + escapeHtml(o.productKey) + '</td>' +
+        '<td>' + escapeHtml(o.muddati) + '</td>' +
+        '<td>' + escapeHtml(o.tolovKartasi) + '</td>' +
+        '<td>' + escapeHtml(o.tolovVaqti) + '</td>' +
+        '<td>' + (hasKey ? '<span class="badge badge-active">Faol</span>' : '<span class="badge badge-pending">Kutilmoqda</span>') + '</td>' +
+        '<td>' + actionCell + '</td>';
+      tbody.appendChild(tr);
+    });
+  }
+
+  function saveActivation(row) {
+    var input = $('key_' + row);
+    var key = input ? input.value.trim() : '';
+    if (!key) { alert('Faollashtirish kalitini kiriting.'); return; }
+    showLoader(true);
+    google.script.run
+      .withSuccessHandler(function (res) {
+        showLoader(false);
+        if (!res.ok) { alert(res.message); return; }
+        loadAdminOrders();
+      })
+      .withFailureHandler(function (err) {
+        showLoader(false);
+        alert('Server xatosi: ' + err.message);
+      })
+      .setActivationKey(state.phone, row, key);
+  }
+
+  function filterAdminOrders() {
+    var q = $('adminSearch').value.toLowerCase().trim();
+    if (!q) { renderAdminTable(state.adminOrders); return; }
+    var filtered = state.adminOrders.filter(function (o) {
+      return (o.fio + ' ' + o.telefon + ' ' + o.productKey + ' ' + o.muddati)
+        .toLowerCase().indexOf(q) !== -1;
+    });
+    renderAdminTable(filtered);
+  }
+
+  // ===== CHIQISH =====
+  function logout() {
+    state.phone = '';
+    state.isAdmin = false;
+    $('phoneInput').value = '+998';
+    $('passwordInput').value = '';
+    backToPhone();
+    setMsg('orderMsg', '');
+    showView('loginView');
+  }
+
+  // ===== Hodisalarni ulash =====
+  document.addEventListener('DOMContentLoaded', function () {
+    $('phoneBtn').addEventListener('click', submitPhone);
+    $('passwordBtn').addEventListener('click', submitPassword);
+    $('changePhoneBtn').addEventListener('click', backToPhone);
+    $('submitOrderBtn').addEventListener('click', submitOrder);
+    $('muddatiSelect').addEventListener('change', onMuddatiChange);
+    $('adminSearch').addEventListener('input', filterAdminOrders);
+
+    var phoneEl = $('phoneInput');
+    phoneEl.addEventListener('input', function () { normalizePhoneInput(phoneEl); });
+    phoneEl.addEventListener('keydown', function (e) { if (e.key === 'Enter') submitPhone(); });
+    $('passwordInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') submitPassword(); });
+  });
+</script>
