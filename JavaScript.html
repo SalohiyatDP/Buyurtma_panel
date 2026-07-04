@@ -247,12 +247,12 @@
 
       var html = '';
       html += detailRow('Holati', badge, true);
-      html += detailRow('Buyurtmachi F.I.O', escapeHtml(latest.fio));
-      html += detailRow('Mahsulot', escapeHtml(latest.mahsulot));
-      html += detailRow('Product Key', escapeHtml(latest.productKey));
-      html += detailRow('Muddati', escapeHtml(latest.muddati));
-      html += detailRow('To\'lov kartasi', escapeHtml(latest.tolovKartasi));
-      html += detailRow('To\'lov vaqti', escapeHtml(latest.tolovVaqti));
+      html += detailRow('Buyurtmachi F.I.O', latest.fio);
+      html += detailRow('Mahsulot', latest.mahsulot);
+      html += detailRow('Product Key', latest.productKey);
+      html += detailRow('Muddati', latest.muddati);
+      html += detailRow('To\'lov kartasi', latest.tolovKartasi);
+      html += detailRow('To\'lov vaqti', latest.tolovVaqti);
       if (hasActivation) {
         html += '<div class="lic-box"><div class="lic-label">Activation Key (litsenziya):</div>' +
           '<div class="lic-value" id="licValue">' + escapeHtml(latest.activationKey) + '</div>' +
