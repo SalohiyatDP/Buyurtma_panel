@@ -153,12 +153,12 @@
     var val = $('muddatiSelect').value;
     var item = state.pricing.filter(function (p) { return p.muddat === val; })[0];
     if (item) {
-      $('tolovKartasiInput').value = item.karta;
+      // Buyurtmachi shu kartaga to'lov qiladi (ma'lumot uchun ko'rsatamiz).
+      // To'lov qilingan karta raqamini buyurtmachi o'zi kiritadi.
       $('priceHint').classList.remove('hidden');
       $('priceHint').innerHTML = 'Narx: <strong>' + escapeHtml(item.qiymati) +
-        '</strong><br>To\'lov uchun karta: <strong>' + escapeHtml(item.karta) + '</strong>';
+        '</strong><br>Quyidagi kartaga to\'lov qiling: <strong>' + escapeHtml(item.karta) + '</strong>';
     } else {
-      $('tolovKartasiInput').value = '';
       $('priceHint').classList.add('hidden');
     }
   }
@@ -228,6 +228,7 @@
       $('fioInput').value = order.fio || '';
       $('productKeyInput').value = order.productKey || '';
       $('muddatiSelect').value = order.muddati || '';
+      $('tolovKartasiInput').value = order.tolovKartasi || '';
       onMuddatiChange();
     }
     setDefaultTolovVaqti();

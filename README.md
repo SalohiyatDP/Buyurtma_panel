@@ -9,7 +9,8 @@ Google Sheets ma'lumotlari asosida ishlaydigan buyurtma berish web-ilovasi. Ilov
   - Agar telefon raqami `LOGIN` sahifasida bo'lsa → parol so'raladi va **boshqaruv paneliga** (admin) yo'naltiriladi.
   - Aks holda → to'g'ridan-to'g'ri **buyurtma paneliga** yo'naltiriladi.
 - **Buyurtma paneli**:
-  - Muddat tanlanganda narx va to'lov kartasi avtomatik ko'rsatiladi (`NARXLANISH` sahifasidan).
+  - Muddat tanlanganda narx va qaysi kartaga to'lash kerakligi maslahat sifatida ko'rsatiladi (`NARXLANISH` sahifasidan).
+  - Buyurtmachi **mahsulot uchun to'lov o'tkazilgan karta raqami** va **to'lov o'tkazilgan sana va vaqt**ni o'zi kiritadi.
   - `Activation_key` **bo'sh** bo'lsa — majburiy maydonlar to'ldiriladi va **"Buyurtma berish"** tugmasi ko'rinadi.
   - `Activation_key` **mavjud** bo'lsa — **"Qayta buyurtma berish"** tugmasi ko'rinadi.
 - **Boshqaruv paneli (admin)**:
