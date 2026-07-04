@@ -239,6 +239,12 @@ function submitOrder(data) {
       }
     }
 
+    // Karta raqami — aynan 16 ta raqam bo'lishi shart
+    var cardDigits = String(data.tolovKartasi).replace(/\D/g, '');
+    if (cardDigits.length !== 16) {
+      return { ok: false, message: 'Karta raqami 16 ta raqamdan iborat bo\'lishi kerak.' };
+    }
+
     var sheet = getSheet_(SHEET_BUYURTMA);
     ensureHolatiHeader_();
     var newRow = [];

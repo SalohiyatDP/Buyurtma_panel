@@ -33,12 +33,36 @@
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
-  // Telefonni formatlash: faqat "+998" bilan boshlanishiga majbur qiladi
+  // Telefon input formatlash: +998 (xx) xxx-xx-xx
   function normalizePhoneInput(el) {
     var digits = el.value.replace(/\D/g, '');
     if (digits.indexOf('998') === 0) digits = digits.substring(3);
     digits = digits.substring(0, 9);
-    el.value = '+998' + (digits ? ' ' + digits : '');
+    var out = '+998';
+    if (digits.length > 0) {
+      out += ' (' + digits.substring(0, 2);
+      if (digits.length >= 2) out += ')';
+    }
+    if (digits.length > 2) out += ' ' + digits.substring(2, 5);
+    if (digits.length > 5) out += '-' + digits.substring(5, 7);
+    if (digits.length > 7) out += '-' + digits.substring(7, 9);
+    el.value = out;
+  }
+
+  // Har qanday telefon matnini ko'rsatish uchun formatlaydi: +998 (xx) xxx-xx-xx
+  function formatPhoneStr(raw) {
+    var d = String(raw).replace(/\D/g, '');
+    if (d.indexOf('998') === 0) d = d.substring(3);
+    d = d.substring(0, 9);
+    if (d.length < 9) return String(raw);
+    return '+998 (' + d.substring(0, 2) + ') ' + d.substring(2, 5) + '-' + d.substring(5, 7) + '-' + d.substring(7, 9);
+  }
+
+  // Karta input formatlash: xxxx xxxx xxxx xxxx (16 raqam)
+  function formatCardInput(el) {
+    var d = el.value.replace(/\D/g, '').substring(0, 16);
+    var groups = d.match(/.{1,4}/g);
+    el.value = groups ? groups.join(' ') : '';
   }
 
   // ===== 1-QADAM: TELEFON =====
@@ -121,7 +145,7 @@
   // ===== BUYURTMA PANELI =====
   function openOrderPanel() {
     showView('orderView');
-    $('orderUserPhone').textContent = '+' + state.phone.replace(/^998/, '998 ');
+    $('orderUserPhone').textContent = formatPhoneStr(state.phone);
     showLoader(true);
 
     // Narxlanish va foydalanuvchi buyurtmalarini parallel yuklaymiz
@@ -329,7 +353,10 @@
     if (!data.mahsulot) return setMsg('orderMsg', 'Mahsulotni tanlang.', 'error');
     if (!data.productKey) return setMsg('orderMsg', 'Product Key ni kiriting.', 'error');
     if (!data.muddati) return setMsg('orderMsg', 'Muddatini tanlang.', 'error');
-    if (!data.tolovKartasi) return setMsg('orderMsg', 'To\'lov kartasi aniqlanmadi.', 'error');
+    if (!data.tolovKartasi) return setMsg('orderMsg', 'To\'lov kartasi raqamini kiriting.', 'error');
+    if (data.tolovKartasi.replace(/\D/g, '').length !== 16) {
+      return setMsg('orderMsg', 'Karta raqami 16 ta raqamdan iborat bo\'lishi kerak (xxxx xxxx xxxx xxxx).', 'error');
+    }
     if (!data.tolovVaqti) return setMsg('orderMsg', 'To\'lov vaqtini kiriting.', 'error');
 
     setMsg('orderMsg', '');
@@ -431,7 +458,11 @@
       var amalCell;
       if (isApproved) {
         amalCell = '<span class="muted">✔ berilgan</span>';
+      } else if (isRejected) {
+        // Rad etilgan buyurtmada amal tugmasi bo'lmaydi
+        amalCell = '<span class="muted">—</span>';
       } else {
+        // Faqat "Kutilmoqda" holatida tasdiqlash/rad etish mumkin
         amalCell = '<div class="act-cell">';
         if (isClassifier) {
           // RSA litsenziya avtomatik ishlab chiqiladi
@@ -441,16 +472,14 @@
           amalCell += '<input class="key-input" id="mkey_' + o.row + '" placeholder="Activation key...">' +
             '<button class="btn btn-success btn-sm" onclick="approveOrder(' + o.row + ',false)">Tasdiqlash</button>';
         }
-        if (!isRejected) {
-          amalCell += '<button class="btn btn-danger btn-sm" onclick="rejectOrder(' + o.row + ')">Rad etish</button>';
-        }
+        amalCell += '<button class="btn btn-danger btn-sm" onclick="rejectOrder(' + o.row + ')">Rad etish</button>';
         amalCell += '</div>';
       }
 
       tr.innerHTML =
         '<td>' + (idx + 1) + '</td>' +
         '<td>' + escapeHtml(o.fio) + '</td>' +
-        '<td>' + escapeHtml(o.telefon) + '</td>' +
+        '<td>' + escapeHtml(formatPhoneStr(o.telefon)) + '</td>' +
         '<td>' + escapeHtml(o.mahsulot) + '</td>' +
         '<td>' + escapeHtml(o.productKey) + '</td>' +
         '<td>' + escapeHtml(o.muddati) + '</td>' +
@@ -536,6 +565,9 @@
     $('mahsulotSelect').addEventListener('change', onMahsulotChange);
     $('muddatiSelect').addEventListener('change', onMuddatiChange);
     $('adminSearch').addEventListener('input', filterAdminOrders);
+
+    var cardEl = $('tolovKartasiInput');
+    cardEl.addEventListener('input', function () { formatCardInput(cardEl); });
 
     var phoneEl = $('phoneInput');
     phoneEl.addEventListener('input', function () { normalizePhoneInput(phoneEl); });
