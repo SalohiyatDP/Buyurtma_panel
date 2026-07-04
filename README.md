@@ -13,9 +13,25 @@ Google Sheets ma'lumotlari asosida ishlaydigan buyurtma berish web-ilovasi. Ilov
   - Buyurtmachi **mahsulot uchun to'lov o'tkazilgan karta raqami** va **to'lov o'tkazilgan sana va vaqt**ni o'zi kiritadi.
   - `Activation_key` **bo'sh** bo'lsa — majburiy maydonlar to'ldiriladi va **"Buyurtma berish"** tugmasi ko'rinadi.
   - `Activation_key` **mavjud** bo'lsa — **"Qayta buyurtma berish"** tugmasi ko'rinadi.
+  - `Activation_key` **bo'sh** bo'lsa va buyurtma **rad etilgan** bo'lsa — mos xabar ko'rsatiladi.
 - **Boshqaruv paneli (admin)**:
   - Barcha buyurtmalarni jadval ko'rinishida ko'rish, qidirish va statistika.
-  - Har bir buyurtmaga `Activation_key` (faollashtirish kaliti) berish.
+  - Har bir buyurtma uchun **Tasdiqlash** yoki **Rad etish** tugmasi.
+  - **Tasdiqlanganda** — `LOGIN` sahifasidagi RSA maxfiy kalit yordamida litsenziya (`Activation_key`) **avtomatik ishlab chiqiladi** va buyurtmachiga ko'rsatiladi.
+
+## Litsenziya (Activation key) ishlab chiqish
+
+Admin buyurtmani tasdiqlaganda, server tomonda `Topography` mahsulotining `LicenseTopo.ValidateLicense` algoritmiga to'liq mos litsenziya yaratiladi:
+
+1. **Product Key** (Machine ID, Base32) → Base32-dekod → GZip-yechish → `ProcessorId`.
+2. **Muddati** (`NARXLANISH`dan) → amal qilish sanasi → .NET `ticks` (UTC).
+3. `payload = ProcessorId + "|" + ticks`.
+4. `payload` **RSA-SHA256 (PKCS#1 v1.5)** bilan `RSA_kalit` yordamida imzolanadi (256 bayt).
+5. `combined = payload + imzo` → GZip → Base32 = **licenseStr** (bu `Activation_key`).
+
+> Algoritm Node.js'da `crypto` (bu .NET `RSA.VerifyData(SHA256)` bilan bir xil) yordamida tekshirilgan — barcha muddatlar uchun imzo ochiq kalit bilan `verify=true` beradi.
+
+⚠️ **Xavfsizlik:** Yaroqli litsenziya yaratish uchun DLL ichidagi ochiq kalitga mos **RSA maxfiy kalit** (`LOGIN` → `RSA_kalit`) kerak. Maxfiy kalitsiz litsenziya yaratib bo'lmaydi.
 
 ## Jadval tuzilmasi
 
@@ -28,13 +44,17 @@ Ilova quyidagi 3 ta sahifa (varaq) mavjudligini kutadi:
 | ...    | ...     | ...          |
 
 ### `BUYURTMA`
-| Buyurtmachi_FIO | Telefon_raqami | Product_Key | Activation_key | Muddati | Tolov_kartasi | Tolov_vaqti |
-|-----------------|----------------|-------------|----------------|---------|---------------|-------------|
+| Buyurtmachi_FIO | Telefon_raqami | Product_Key | Activation_key | Muddati | Tolov_kartasi | Tolov_vaqti | Holati |
+|-----------------|----------------|-------------|----------------|---------|---------------|-------------|--------|
+
+> `Holati` ustuni (H) ilova tomonidan avtomatik boshqariladi: `Kutilmoqda` / `Tasdiqlangan` / `Rad etilgan`. Ustun bo'lmasa, ilova uni o'zi qo'shadi.
 
 ### `LOGIN`
-| Login | Parol |
-|-------|-------|
-| 998939113005 | Admin2012 |
+| Login | Parol | RSA_kalit |
+|-------|-------|-----------|
+| 998939113005 | Admin2012 | `<RSAKeyValue><Modulus>...</Modulus>...<D>...</D></RSAKeyValue>` |
+
+> `RSA_kalit` (C ustuni) — .NET XML formatidagi **to'liq RSA maxfiy kalit** (P, Q, DP, DQ, InverseQ, D bilan). Litsenziya imzolash uchun ishlatiladi.
 
 > **Eslatma:** Telefon raqamlari solishtirilganda faqat raqamlar hisobga olinadi (`+`, bo'shliq, `998` prefiksi e'tiborsiz qoldiriladi), shuning uchun `+998 93 911 30 05` va `998939113005` bir xil hisoblanadi.
 

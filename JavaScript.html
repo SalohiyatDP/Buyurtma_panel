@@ -181,12 +181,15 @@
     var box = $('existingOrderBox');
     var formBox = $('orderFormBox');
     var hasActivation = latest && latest.activationKey && latest.activationKey.trim() !== '';
+    var status = latest ? (latest.holati || '').trim() : '';
+    var isRejected = status === 'Rad etilgan';
 
     if (latest) {
       box.classList.remove('hidden');
-      var badge = hasActivation
-        ? '<span class="badge badge-active">Faollashtirilgan</span>'
-        : '<span class="badge badge-pending">Kutilmoqda</span>';
+      var badge;
+      if (hasActivation) badge = '<span class="badge badge-active">Tasdiqlangan</span>';
+      else if (isRejected) badge = '<span class="badge badge-rejected">Rad etilgan</span>';
+      else badge = '<span class="badge badge-pending">Kutilmoqda</span>';
 
       var html = '';
       html += detailRow('Holati', badge, true);
@@ -196,7 +199,13 @@
       html += detailRow('To\'lov kartasi', escapeHtml(latest.tolovKartasi));
       html += detailRow('To\'lov vaqti', escapeHtml(latest.tolovVaqti));
       if (hasActivation) {
-        html += detailRow('Activation Key', '<strong style="color:#166534">' + escapeHtml(latest.activationKey) + '</strong>', true);
+        html += '<div class="lic-box"><div class="lic-label">Activation Key (litsenziya):</div>' +
+          '<div class="lic-value" id="licValue">' + escapeHtml(latest.activationKey) + '</div>' +
+          '<button class="btn btn-ghost-dark btn-sm" onclick="copyLicense()">Nusxa olish</button></div>';
+      } else if (isRejected) {
+        html += '<div class="reject-note">Afsuski, buyurtmangiz rad etildi. Ma\'lumotlarni tekshirib, qaytadan buyurtma berishingiz mumkin.</div>';
+      } else {
+        html += '<div class="pending-note">Buyurtmangiz administrator tomonidan ko\'rib chiqilmoqda. Tasdiqlangach, litsenziya shu yerda paydo bo\'ladi.</div>';
       }
       $('existingOrderDetails').innerHTML = html;
     } else {
@@ -204,18 +213,31 @@
     }
 
     if (hasActivation) {
-      // Activation_key mavjud -> "Qayta buyurtma berish" tugmasi
+      // Litsenziya berilgan -> "Qayta buyurtma berish" tugmasi
       formBox.classList.add('hidden');
-      // existingOrderBox ichiga qayta buyurtma tugmasini qo'shamiz
       var reBtn = '<button class="btn btn-warning btn-block" onclick="startReorder()">Qayta buyurtma berish</button>';
       $('existingOrderDetails').innerHTML += reBtn;
+    } else if (isRejected) {
+      // Rad etilgan -> yangi buyurtma berish formasi (bo'sh)
+      formBox.classList.remove('hidden');
+      $('orderFormTitle').textContent = 'Qaytadan buyurtma berish';
+      $('submitOrderBtn').textContent = 'Buyurtma berish';
+      prefillForm(latest);
     } else {
-      // Activation_key bo'sh -> majburiy maydonlar + "Buyurtma berish"
+      // Kutilmoqda yoki buyurtma yo'q -> forma
       formBox.classList.remove('hidden');
       $('orderFormTitle').textContent = latest ? 'Buyurtma ma\'lumotlari' : 'Yangi buyurtma berish';
       $('submitOrderBtn').textContent = 'Buyurtma berish';
       prefillForm(latest);
     }
+  }
+
+  function copyLicense() {
+    var el = $('licValue');
+    if (!el) return;
+    navigator.clipboard.writeText(el.textContent).then(function () {
+      alert('Litsenziya nusxa olindi.');
+    });
   }
 
   function detailRow(k, v, isHtml) {
@@ -321,14 +343,19 @@
 
   function renderAdminStats() {
     var total = state.adminOrders.length;
-    var active = state.adminOrders.filter(function (o) {
-      return o.activationKey && o.activationKey.trim() !== '';
-    }).length;
-    var pending = total - active;
+    var approved = 0, rejected = 0;
+    state.adminOrders.forEach(function (o) {
+      var hasKey = o.activationKey && o.activationKey.trim() !== '';
+      var status = (o.holati || '').trim();
+      if (hasKey || status === 'Tasdiqlangan') approved++;
+      else if (status === 'Rad etilgan') rejected++;
+    });
+    var pending = total - approved - rejected;
     $('adminStats').innerHTML =
       statCard(total, 'Jami buyurtmalar') +
       statCard(pending, 'Kutilmoqda') +
-      statCard(active, 'Faollashtirilgan');
+      statCard(approved, 'Tasdiqlangan') +
+      statCard(rejected, 'Rad etilgan');
   }
 
   function statCard(num, lbl) {
@@ -346,22 +373,35 @@
 
     orders.forEach(function (o, idx) {
       var hasKey = o.activationKey && o.activationKey.trim() !== '';
+      var status = (o.holati || '').trim();
+      var isRejected = status === 'Rad etilgan';
+      var isApproved = hasKey || status === 'Tasdiqlangan';
       var tr = document.createElement('tr');
 
       // Holati ustuni
-      var holatiCell = hasKey
-        ? '<span class="badge badge-active">Faol</span>'
-        : '<span class="badge badge-pending">Kutilmoqda</span>';
+      var holatiCell;
+      if (isApproved) holatiCell = '<span class="badge badge-active">Tasdiqlangan</span>';
+      else if (isRejected) holatiCell = '<span class="badge badge-rejected">Rad etilgan</span>';
+      else holatiCell = '<span class="badge badge-pending">Kutilmoqda</span>';
 
-      // Activation Key ustuni: kalit bo'lsa ko'rsatamiz, aks holda kiritish maydoni
+      // Activation Key (litsenziya) ustuni
       var keyCell = hasKey
-        ? '<span class="badge badge-active">' + escapeHtml(o.activationKey) + '</span>'
-        : '<input class="key-input" id="key_' + o.row + '" placeholder="Kalit...">';
+        ? '<span class="lic-key" title="Litsenziya">' + escapeHtml(o.activationKey) + '</span>'
+        : '<span class="muted">—</span>';
 
-      // Amal ustuni: kalit bo'lmasa "Saqlash" tugmasi, bo'lsa belgi
-      var amalCell = hasKey
-        ? '<span class="muted">✔ berilgan</span>'
-        : '<button class="btn btn-primary btn-sm" onclick="saveActivation(' + o.row + ')">Saqlash</button>';
+      // Amal ustuni
+      var amalCell;
+      if (isApproved) {
+        amalCell = '<span class="muted">✔ berilgan</span>';
+      } else {
+        // Kutilmoqda yoki rad etilgan -> tasdiqlash/rad etish mumkin
+        amalCell = '<div class="act-cell">' +
+          '<button class="btn btn-success btn-sm" onclick="approveOrder(' + o.row + ')">Tasdiqlash</button>';
+        if (!isRejected) {
+          amalCell += '<button class="btn btn-danger btn-sm" onclick="rejectOrder(' + o.row + ')">Rad etish</button>';
+        }
+        amalCell += '</div>';
+      }
 
       tr.innerHTML =
         '<td>' + (idx + 1) + '</td>' +
@@ -378,10 +418,9 @@
     });
   }
 
-  function saveActivation(row) {
-    var input = $('key_' + row);
-    var key = input ? input.value.trim() : '';
-    if (!key) { alert('Faollashtirish kalitini kiriting.'); return; }
+  // Buyurtmani tasdiqlash -> server RSA orqali litsenziya yaratadi
+  function approveOrder(row) {
+    if (!confirm('Buyurtmani tasdiqlaysizmi? Litsenziya (Activation key) avtomatik ishlab chiqiladi.')) return;
     showLoader(true);
     google.script.run
       .withSuccessHandler(function (res) {
@@ -393,7 +432,24 @@
         showLoader(false);
         alert('Server xatosi: ' + err.message);
       })
-      .setActivationKey(state.phone, row, key);
+      .approveOrder(state.phone, row);
+  }
+
+  // Buyurtmani rad etish
+  function rejectOrder(row) {
+    if (!confirm('Buyurtmani rad etasizmi?')) return;
+    showLoader(true);
+    google.script.run
+      .withSuccessHandler(function (res) {
+        showLoader(false);
+        if (!res.ok) { alert(res.message); return; }
+        loadAdminOrders();
+      })
+      .withFailureHandler(function (err) {
+        showLoader(false);
+        alert('Server xatosi: ' + err.message);
+      })
+      .rejectOrder(state.phone, row);
   }
 
   function filterAdminOrders() {
