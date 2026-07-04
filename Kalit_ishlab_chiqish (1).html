@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Topography — Litsenziya kaliti ishlab chiqarish</title>
+<style>
+  :root{
+    --bg:#0f172a; --panel:#1e293b; --panel2:#273449; --line:#334155;
+    --txt:#e2e8f0; --mut:#94a3b8; --acc:#38bdf8; --ok:#22c55e; --bad:#ef4444; --warn:#f59e0b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--txt);line-height:1.5}
+  .wrap{max-width:960px;margin:0 auto;padding:24px}
+  h1{font-size:22px;margin:0 0 4px}
+  h2{font-size:16px;margin:22px 0 10px;color:var(--acc);border-bottom:1px solid var(--line);padding-bottom:6px}
+  .sub{color:var(--mut);margin:0 0 18px;font-size:14px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:16px}
+  label{display:block;font-size:13px;color:var(--mut);margin:12px 0 4px;font-weight:600}
+  input[type=text],textarea,input[type=datetime-local]{
+    width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--txt);
+    border-radius:8px;padding:10px 12px;font-family:ui-monospace,Consolas,monospace;font-size:13px
+  }
+  textarea{resize:vertical;min-height:90px;white-space:pre;overflow:auto}
+  .row{display:flex;gap:12px;flex-wrap:wrap}
+  .row>div{flex:1;min-width:220px}
+  button{background:var(--acc);color:#04212f;border:0;border-radius:8px;padding:10px 16px;font-weight:700;cursor:pointer;font-size:14px}
+  button:hover{filter:brightness(1.08)}
+  button.sec{background:var(--panel2);color:var(--txt);border:1px solid var(--line)}
+  .btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;align-items:center}
+  .out{background:#0b1220;border:1px dashed var(--line);border-radius:8px;padding:12px;font-family:ui-monospace,monospace;font-size:13px;word-break:break-all;white-space:pre-wrap;min-height:40px}
+  .pill{display:inline-block;font-size:12px;padding:2px 10px;border-radius:999px;margin-left:8px}
+  .pill.ok{background:rgba(34,197,94,.15);color:var(--ok)}
+  .pill.bad{background:rgba(239,68,68,.15);color:var(--bad)}
+  .note{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.4);border-radius:8px;padding:12px;font-size:13px;color:#fde68a;margin-bottom:16px}
+  .kv{font-size:13px;color:var(--mut);margin:4px 0}
+  .kv b{color:var(--txt);font-family:ui-monospace,monospace}
+  .preset{background:transparent;border:1px solid var(--line);color:var(--mut);padding:6px 10px;font-weight:600;font-size:12px}
+  .preset:hover{color:var(--txt);border-color:var(--acc)}
+  small.hint{color:var(--mut);font-size:12px;display:block;margin-top:4px}
+  .radio{display:inline-flex;align-items:center;gap:6px;margin-right:16px;font-size:13px;color:var(--txt);cursor:pointer}
+  details{margin-top:8px}
+  summary{cursor:pointer;color:var(--acc);font-size:13px;font-weight:600}
+  .err{color:var(--bad);font-size:13px;margin-top:8px;white-space:pre-wrap}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Topography — Litsenziya kaliti ishlab chiqarish</h1>
+  <p class="sub">Mashina ID (yoki xom ProcessorId) va muddat kiritilsa, <code>Topography_R19.dll</code> ga yoziladigan <b>licenseStr</b> matnini yaratadi. Algoritm <code>LicenseTopo.ValidateLicense</code> ga to‘liq mos.</p>
+
+  <div class="note">
+    ⚠️ <b>Diqqat:</b> Yaroqli litsenziya yaratish uchun DLL ichidagi ochiq kalitga mos keladigan <b>RSA MAXFIY KALIT</b> (private key, .NET XML) kerak. U faqat dasturiy mahsulot egasida bo‘ladi. Maxfiy kalitsiz yaroqli litsenziya yaratib bo‘lmaydi — bu tizimning himoyasi. Bu vosita faqat mahsulot egasi uchun.
+  </div>
+
+  <div class="card">
+    <h2>1) Kirish ma’lumotlari</h2>
+
+    <label>Kirish turi</label>
+    <div>
+      <label class="radio"><input type="radio" name="idtype" value="machine" checked> Machine ID — <code>GetCPUId()</code> natijasi (Base32)</label>
+      <label class="radio"><input type="radio" name="idtype" value="raw"> Xom <code>ProcessorId</code> (masalan <code>BFEBFBFF000906EA</code>)</label>
+    </div>
+
+    <label id="lblId">Machine ID (GetCPUId natijasi)</label>
+    <input type="text" id="machineId" placeholder="Masalan: KRUGKIDROVQW... yoki XXXX-XXXX-XXXX" />
+    <small class="hint" id="hintId">Base32 matn. Vosita uni avval <b>Base32-dekod → GZip-yechish</b> orqali xom ProcessorId ga aylantiradi.</small>
+
+    <div class="row">
+      <div>
+        <label>Amal qilish muddati (UTC)</label>
+        <input type="datetime-local" id="expiry" />
+        <small class="hint">Kiritilgan sana/vaqt <b>UTC</b> sifatida talqin qilinadi (plagin <code>DateTime.UtcNow</code> bilan solishtiradi).</small>
+        <div class="btns">
+          <button class="preset" data-add="1m">+1 oy</button>
+          <button class="preset" data-add="6m">+6 oy</button>
+          <button class="preset" data-add="1y">+1 yil</button>
+          <button class="preset" data-add="3y">+3 yil</button>
+          <button class="preset" data-add="perp">Muddatsiz (9999)</button>
+        </div>
+      </div>
+    </div>
+
+    <label>RSA maxfiy kalit — .NET XML (private key)</label>
+    <textarea id="privKey" placeholder="&lt;RSAKeyValue&gt;&lt;Modulus&gt;...&lt;/Modulus&gt;&lt;Exponent&gt;AQAB&lt;/Exponent&gt;&lt;P&gt;...&lt;/P&gt;&lt;Q&gt;...&lt;/Q&gt;&lt;DP&gt;...&lt;/DP&gt;&lt;DQ&gt;...&lt;/DQ&gt;&lt;InverseQ&gt;...&lt;/InverseQ&gt;&lt;D&gt;...&lt;/D&gt;&lt;/RSAKeyValue&gt;"></textarea>
+    <small class="hint">To‘liq (P, Q, DP, DQ, InverseQ, D li) private key kerak — faqat Modulus/Exponent (public) yetarli emas.</small>
+
+    <div class="btns">
+      <button id="genBtn">Litsenziya yaratish</button>
+      <button class="sec" id="revBtn">ProcessorId ni ko‘rsatish</button>
+    </div>
+    <div class="err" id="genErr"></div>
+  </div>
+
+  <div class="card">
+    <h2>2) Natija — licenseStr</h2>
+    <div class="kv">Tiklangan ProcessorId: <b id="oProc">—</b></div>
+    <div class="kv">Muddat (ticks): <b id="oTicks">—</b></div>
+    <div class="kv">Muddat (UTC): <b id="oDate">—</b></div>
+    <div class="kv">Imzo tekshiruvi (ochiq kalit bilan): <span id="oVerify" class="pill">—</span></div>
+    <label>licenseStr (shu matnni <code>Topography.bundle/Contents/Topography_R19.dll</code> fayliga yozing)</label>
+    <div class="out" id="licenseOut">—</div>
+    <div class="btns">
+      <button class="sec" id="copyBtn">Nusxa olish</button>
+      <button class="sec" id="dlBtn">Fayl sifatida yuklab olish (Topography_R19.dll)</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <details>
+      <summary>Qo‘shimcha: yangi RSA kalit jufti yaratish (maxfiy kalit yo‘qolgan bo‘lsa)</summary>
+      <p class="sub" style="margin-top:12px">Yangi 2048-bit RSA juft kalit yaratadi. <b>Public</b> ni <code>LicenseTopo._publicKey</code> ga (Base64) qo‘ying va manbani qayta build qiling; <b>Private XML</b> ni yuqoridagi maydonda ishlating. Diqqat: kalitni almashtirsangiz eski litsenziyalar ishlamay qoladi.</p>
+      <div class="btns"><button class="sec" id="kpBtn">Yangi juft yaratish</button></div>
+      <label>Private key (.NET XML)</label>
+      <div class="out" id="kpPriv">—</div>
+      <label>Public key — <code>_publicKey</code> uchun Base64</label>
+      <div class="out" id="kpPub">—</div>
+    </details>
+  </div>
+
+  <p class="sub">Talab: zamonaviy brauzer (Chrome/Edge/Firefox/Safari) — <code>Web Crypto</code> va <code>CompressionStream('gzip')</code> qo‘llab-quvvatlanishi kerak.</p>
+</div>
+
+<script>
+"use strict";
+const B32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+const TICKS_EPOCH = 621355968000000000n; // DateTime(1970,1,1,UTC).Ticks
+// DLL ichidagi ochiq kalit (Base64 -> UTF8 -> RSA XML). Imzoni tekshirish uchun.
+const PUBLIC_KEY_B64 = "PFJTQUtleVZhbHVlPjxNb2R1bHVzPnR4dXkxRFVBVE8yYTdUaDJvdGs4bXE1TTB1ejBManhldkdMZlVRbGcza1hJOGR6aC9aWDE2ajVOL1BGNUx6UVFrWG1MSWh5ZUdFd25tSXNFdlN5bDhRNFNTOGorTGZOT2J4Wkd6K2o1blljWDFUZHVDU21uRmRKYklyemtwTUd0QmJZTkJOd2U5a2F4cHZ6UmNNQkIxOFExV1hmdDdHaG5xclliRTJwSlJWOXRqbUtZSXl4OGdXMG5NTkRuTitxazFONmtSNDY5Q0JpRms2R2pTdEh1Z21LRXBHd1JsbHVyOGNaejVTZ3lWUmVzTHBCa1Azb2NwT0N1dXduVVZEcmRUT2hXQWdTa3M2bTY4dk9FakIyWnlaTTBZUmFTTm9tZitZd2YxZ3FHaXB5U1hlR1FUUEwwRWhKVXpzM2xwSUdRUXVnWGJQdVkwWlYzaXFSYlRFb0JqUT09PC9Nb2R1bHVzPjxFeHBvbmVudD5BUUFCPC9FeHBvbmVudD48L1JTQUtleVZhbHVlPg==";
+
+/* ---------- Base32 (LicenseTopo bilan bir xil) ---------- */
+function base32Encode(data){
+  let out="", bits=0, val=0;
+  for(const b of data){
+    val=(val<<8)|b; bits+=8;
+    while(bits>=5){ out+=B32[(val>>(bits-5))&31]; bits-=5; val&=(1<<bits)-1; }
+  }
+  if(bits>0) out+=B32[(val<<(5-bits))&31];
+  return out;
+}
+function base32Decode(str){
+  str=str.toUpperCase();
+  const out=[]; let bits=0, val=0;
+  for(const c of str){
+    if(c==='-'||c==='\n'||c==='\r'||c===' '||c==='\t') continue;
+    const idx=B32.indexOf(c);
+    if(idx<0) throw new Error("Yaroqsiz Base32 belgi: '"+c+"'");
+    val=(val<<5)|idx; bits+=5;
+    if(bits>=8){ out.push((val>>(bits-8))&255); bits-=8; val&=(1<<bits)-1; }
+  }
+  return new Uint8Array(out);
+}
+
+/* ---------- GZip (brauzer) ---------- */
+async function gzip(bytes){
+  const cs=new CompressionStream("gzip");
+  const w=cs.writable.getWriter(); w.write(bytes); w.close();
+  return new Uint8Array(await new Response(cs.readable).arrayBuffer());
+}
+async function gunzip(bytes){
+  const ds=new DecompressionStream("gzip");
+  const w=ds.writable.getWriter(); w.write(bytes); w.close();
+  return new Uint8Array(await new Response(ds.readable).arrayBuffer());
+}
+
+/* ---------- base64 yordamchilari ---------- */
+function b64ToBytes(b64){ const s=atob(b64); const a=new Uint8Array(s.length); for(let i=0;i<s.length;i++)a[i]=s.charCodeAt(i); return a; }
+function bytesToB64(bytes){ let s=""; for(const b of bytes)s+=String.fromCharCode(b); return btoa(s); }
+function b64ToB64url(b64){ return b64.replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,""); }
+function b64urlToB64(u){ u=u.replace(/-/g,"+").replace(/_/g,"/"); while(u.length%4)u+="="; return u; }
+
+/* ---------- .NET RSA XML <-> JWK ---------- */
+function xmlTag(doc,name){ const el=doc.getElementsByTagName(name)[0]; return el?el.textContent.trim():null; }
+function privXmlToJwk(xml){
+  const doc=new DOMParser().parseFromString(xml,"application/xml");
+  if(doc.getElementsByTagName("parsererror").length) throw new Error("XML xato (parse bo‘lmadi).");
+  const need=["Modulus","Exponent","P","Q","DP","DQ","InverseQ","D"];
+  const v={}; for(const n of need){ const t=xmlTag(doc,n); if(!t) throw new Error("XML da <"+n+"> topilmadi (to‘liq private key kerak)."); v[n]=t; }
+  return { kty:"RSA", n:b64ToB64url(v.Modulus), e:b64ToB64url(v.Exponent),
+           d:b64ToB64url(v.D), p:b64ToB64url(v.P), q:b64ToB64url(v.Q),
+           dp:b64ToB64url(v.DP), dq:b64ToB64url(v.DQ), qi:b64ToB64url(v.InverseQ),
+           alg:"RS256", ext:true };
+}
+function pubXmlToJwk(xml){
+  const doc=new DOMParser().parseFromString(xml,"application/xml");
+  const n=xmlTag(doc,"Modulus"), e=xmlTag(doc,"Exponent");
+  if(!n||!e) throw new Error("Ochiq kalit XML noto‘g‘ri.");
+  return { kty:"RSA", n:b64ToB64url(n), e:b64ToB64url(e), alg:"RS256", ext:true };
+}
+
+/* ---------- ticks / sana ---------- */
+function dateInputToTicks(val){
+  // "YYYY-MM-DDTHH:MM" -> UTC ticks (BigInt)
+  const m=val.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if(!m) throw new Error("Muddat kiritilmagan yoki noto‘g‘ri.");
+  const ms=Date.UTC(+m[1],+m[2]-1,+m[3],+m[4],+m[5],0);
+  return BigInt(ms)*10000n + TICKS_EPOCH;
+}
+function ticksToUtcString(ticks){
+  const ms=Number((ticks - TICKS_EPOCH)/10000n);
+  return new Date(ms).toISOString().replace("T"," ").replace(".000Z"," UTC");
+}
+
+/* ---------- ProcessorId olish ---------- */
+async function resolveProcessorId(){
+  const type=document.querySelector('input[name=idtype]:checked').value;
+  const raw=document.getElementById("machineId").value.trim();
+  if(!raw) throw new Error("Machine ID / ProcessorId kiriting.");
+  if(type==="raw") return raw;
+  // machine ID = Base32(GZip(UTF8(ProcessorId)))  -> teskari
+  let bytes;
+  try{ bytes = await gunzip(base32Decode(raw)); }
+  catch(e){ throw new Error("Machine ID ni ProcessorId ga aylantirib bo‘lmadi (Base32/GZip xato). To‘g‘ri GetCPUId natijasini kiriting.\n"+e.message); }
+  return new TextDecoder().decode(bytes);
+}
+
+/* ---------- asosiy: litsenziya yaratish ---------- */
+let lastLicenseBytes=null;
+async function generate(){
+  const err=document.getElementById("genErr"); err.textContent="";
+  setVerify(null);
+  document.getElementById("licenseOut").textContent="—";
+  try{
+    const processorId = await resolveProcessorId();
+    document.getElementById("oProc").textContent = processorId;
+
+    const ticks = dateInputToTicks(document.getElementById("expiry").value);
+    document.getElementById("oTicks").textContent = ticks.toString();
+    document.getElementById("oDate").textContent = ticksToUtcString(ticks);
+
+    const xml=document.getElementById("privKey").value.trim();
+    if(!xml) throw new Error("RSA maxfiy kalit (.NET XML) kiriting.");
+    const jwk=privXmlToJwk(xml);
+
+    // payload = "processorId|ticks"
+    const payloadStr = processorId + "|" + ticks.toString();
+    const payloadBytes = new TextEncoder().encode(payloadStr);
+
+    // RSA-SHA256 imzo (PKCS#1 v1.5) — .NET VerifyData(SHA256) bilan mos
+    const key=await crypto.subtle.importKey("jwk",jwk,{name:"RSASSA-PKCS1-v1_5",hash:"SHA-256"},false,["sign"]);
+    const sigBuf=await crypto.subtle.sign("RSASSA-PKCS1-v1_5",key,payloadBytes);
+    const sig=new Uint8Array(sigBuf);
+    if(sig.length!==256) throw new Error("Imzo uzunligi 256 emas ("+sig.length+"). RSA-2048 kalit kerak.");
+
+    // combined = payload + 256-baytli imzo
+    const combined=new Uint8Array(payloadBytes.length+256);
+    combined.set(payloadBytes,0);
+    combined.set(sig,payloadBytes.length);
+
+    // licenseStr = Base32(GZip(combined))
+    const gz=await gzip(combined);
+    const licenseStr=base32Encode(gz);
+    document.getElementById("licenseOut").textContent=licenseStr;
+    lastLicenseBytes=new TextEncoder().encode(licenseStr);
+
+    // Ochiq kalit bilan tekshirish (self-check)
+    try{
+      const pubXml=new TextDecoder().decode(b64ToBytes(PUBLIC_KEY_B64));
+      const pubKey=await crypto.subtle.importKey("jwk",pubXmlToJwk(pubXml),{name:"RSASSA-PKCS1-v1_5",hash:"SHA-256"},false,["verify"]);
+      const ok=await crypto.subtle.verify("RSASSA-PKCS1-v1_5",pubKey,sig,payloadBytes);
+      setVerify(ok);
+    }catch(e){ setVerify(null); }
+  }catch(e){
+    err.textContent="Xato: "+e.message;
+  }
+}
+function setVerify(ok){
+  const el=document.getElementById("oVerify");
+  if(ok===null){ el.className="pill"; el.textContent="—"; }
+  else if(ok){ el.className="pill ok"; el.textContent="✓ Yaroqli (public key mos)"; }
+  else { el.className="pill bad"; el.textContent="✗ Mos emas — private key public key’ga to‘g‘ri kelmaydi"; }
+}
+
+/* ---------- teskari: ProcessorId ko‘rsatish ---------- */
+async function reveal(){
+  const err=document.getElementById("genErr"); err.textContent="";
+  try{
+    const pid=await resolveProcessorId();
+    document.getElementById("oProc").textContent=pid;
+  }catch(e){ err.textContent="Xato: "+e.message; }
+}
+
+/* ---------- presetlar ---------- */
+function setExpiryPreset(kind){
+  const d=new Date();
+  if(kind==="perp"){ document.getElementById("expiry").value="9999-12-31T23:59"; return; }
+  if(kind==="1m") d.setUTCMonth(d.getUTCMonth()+1);
+  if(kind==="6m") d.setUTCMonth(d.getUTCMonth()+6);
+  if(kind==="1y") d.setUTCFullYear(d.getUTCFullYear()+1);
+  if(kind==="3y") d.setUTCFullYear(d.getUTCFullYear()+3);
+  const p=n=>String(n).padStart(2,"0");
+  document.getElementById("expiry").value=
+    `${d.getUTCFullYear()}-${p(d.getUTCMonth()+1)}-${p(d.getUTCDate())}T${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`;
+}
+
+/* ---------- yangi kalit jufti ---------- */
+function bnToXmlB64(b64url){ return b64urlToB64(b64url); } // JWK(base64url) -> .NET XML(base64 std)
+async function newKeyPair(){
+  const kp=await crypto.subtle.generateKey({name:"RSASSA-PKCS1-v1_5",modulusLength:2048,publicExponent:new Uint8Array([1,0,1]),hash:"SHA-256"},true,["sign","verify"]);
+  const jwk=await crypto.subtle.exportKey("jwk",kp.privateKey);
+  const privXml="<RSAKeyValue>"
+    +"<Modulus>"+bnToXmlB64(jwk.n)+"</Modulus>"
+    +"<Exponent>"+bnToXmlB64(jwk.e)+"</Exponent>"
+    +"<P>"+bnToXmlB64(jwk.p)+"</P>"
+    +"<Q>"+bnToXmlB64(jwk.q)+"</Q>"
+    +"<DP>"+bnToXmlB64(jwk.dp)+"</DP>"
+    +"<DQ>"+bnToXmlB64(jwk.dq)+"</DQ>"
+    +"<InverseQ>"+bnToXmlB64(jwk.qi)+"</InverseQ>"
+    +"<D>"+bnToXmlB64(jwk.d)+"</D>"
+    +"</RSAKeyValue>";
+  const pubXml="<RSAKeyValue><Modulus>"+bnToXmlB64(jwk.n)+"</Modulus><Exponent>"+bnToXmlB64(jwk.e)+"</Exponent></RSAKeyValue>";
+  document.getElementById("kpPriv").textContent=privXml;
+  document.getElementById("kpPub").textContent=btoa(pubXml);
+}
+
+/* ---------- UI ulash ---------- */
+document.getElementById("genBtn").addEventListener("click",generate);
+document.getElementById("revBtn").addEventListener("click",reveal);
+document.getElementById("kpBtn").addEventListener("click",()=>newKeyPair().catch(e=>alert(e.message)));
+document.querySelectorAll(".preset").forEach(b=>b.addEventListener("click",e=>{e.preventDefault();setExpiryPreset(b.dataset.add);}));
+document.getElementById("copyBtn").addEventListener("click",()=>{
+  const t=document.getElementById("licenseOut").textContent;
+  if(t&&t!=="—") navigator.clipboard.writeText(t).then(()=>{const b=document.getElementById("copyBtn");b.textContent="Nusxa olindi ✓";setTimeout(()=>b.textContent="Nusxa olish",1500);});
+});
+document.getElementById("dlBtn").addEventListener("click",()=>{
+  const t=document.getElementById("licenseOut").textContent;
+  if(!t||t==="—"){alert("Avval litsenziya yarating.");return;}
+  const blob=new Blob([t],{type:"text/plain"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="Topography_R19.dll";a.click();URL.revokeObjectURL(a.href);
+});
+document.querySelectorAll('input[name=idtype]').forEach(r=>r.addEventListener("change",()=>{
+  const raw=document.querySelector('input[name=idtype]:checked').value==="raw";
+  document.getElementById("lblId").textContent = raw ? "Xom ProcessorId" : "Machine ID (GetCPUId natijasi)";
+  document.getElementById("hintId").innerHTML = raw
+    ? "Xom ProcessorId to‘g‘ridan-to‘g‘ri payload ichiga yoziladi."
+    : "Base32 matn. Vosita uni avval <b>Base32-dekod → GZip-yechish</b> orqali xom ProcessorId ga aylantiradi.";
+}));
+setExpiryPreset("1y");
+</script>
+</body>
+</html>
