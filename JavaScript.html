@@ -347,15 +347,22 @@
     orders.forEach(function (o, idx) {
       var hasKey = o.activationKey && o.activationKey.trim() !== '';
       var tr = document.createElement('tr');
-      var actionCell;
-      if (hasKey) {
-        actionCell = '<span class="badge badge-active">' + escapeHtml(o.activationKey) + '</span>';
-      } else {
-        actionCell = '<div class="key-cell">' +
-          '<input class="key-input" id="key_' + o.row + '" placeholder="Kalit...">' +
-          '<button class="btn btn-primary btn-sm" onclick="saveActivation(' + o.row + ')">Saqlash</button>' +
-          '</div>';
-      }
+
+      // Holati ustuni
+      var holatiCell = hasKey
+        ? '<span class="badge badge-active">Faol</span>'
+        : '<span class="badge badge-pending">Kutilmoqda</span>';
+
+      // Activation Key ustuni: kalit bo'lsa ko'rsatamiz, aks holda kiritish maydoni
+      var keyCell = hasKey
+        ? '<span class="badge badge-active">' + escapeHtml(o.activationKey) + '</span>'
+        : '<input class="key-input" id="key_' + o.row + '" placeholder="Kalit...">';
+
+      // Amal ustuni: kalit bo'lmasa "Saqlash" tugmasi, bo'lsa belgi
+      var amalCell = hasKey
+        ? '<span class="muted">✔ berilgan</span>'
+        : '<button class="btn btn-primary btn-sm" onclick="saveActivation(' + o.row + ')">Saqlash</button>';
+
       tr.innerHTML =
         '<td>' + (idx + 1) + '</td>' +
         '<td>' + escapeHtml(o.fio) + '</td>' +
@@ -364,8 +371,9 @@
         '<td>' + escapeHtml(o.muddati) + '</td>' +
         '<td>' + escapeHtml(o.tolovKartasi) + '</td>' +
         '<td>' + escapeHtml(o.tolovVaqti) + '</td>' +
-        '<td>' + (hasKey ? '<span class="badge badge-active">Faol</span>' : '<span class="badge badge-pending">Kutilmoqda</span>') + '</td>' +
-        '<td>' + actionCell + '</td>';
+        '<td>' + holatiCell + '</td>' +
+        '<td>' + keyCell + '</td>' +
+        '<td>' + amalCell + '</td>';
       tbody.appendChild(tr);
     });
   }
