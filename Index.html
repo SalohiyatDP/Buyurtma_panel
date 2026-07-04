@@ -74,12 +74,17 @@
             <label class="field-label" for="fioInput">Buyurtmachi F.I.O <span class="req">*</span></label>
             <input id="fioInput" class="input" type="text" placeholder="Familiya Ism Otasining ismi">
 
+            <label class="field-label" for="mahsulotSelect">Mahsulot <span class="req">*</span></label>
+            <select id="mahsulotSelect" class="input">
+              <option value="">— Tanlang —</option>
+            </select>
+
             <label class="field-label" for="productKeyInput">Product Key <span class="req">*</span></label>
-            <input id="productKeyInput" class="input" type="text" placeholder="Mahsulot kaliti">
+            <input id="productKeyInput" class="input" type="text" placeholder="Mahsulot kaliti (Machine ID)">
 
             <label class="field-label" for="muddatiSelect">Muddati <span class="req">*</span></label>
             <select id="muddatiSelect" class="input">
-              <option value="">— Tanlang —</option>
+              <option value="">— Avval mahsulotni tanlang —</option>
             </select>
 
             <div id="priceHint" class="price-hint hidden"></div>
@@ -127,6 +132,7 @@
                     <th>#</th>
                     <th>F.I.O</th>
                     <th>Telefon</th>
+                    <th>Mahsulot</th>
                     <th>Product Key</th>
                     <th>Muddati</th>
                     <th>To'lov kartasi</th>

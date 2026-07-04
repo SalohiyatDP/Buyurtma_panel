@@ -128,7 +128,7 @@
     google.script.run
       .withSuccessHandler(function (pricing) {
         state.pricing = pricing || [];
-        fillMuddatiSelect();
+        fillMahsulotSelect();
         loadUserOrders();
       })
       .withFailureHandler(function (err) {
@@ -138,10 +138,31 @@
       .getPricing();
   }
 
-  function fillMuddatiSelect() {
+  // Mahsulotlar ro'yxatini (takrorlanmas) to'ldiradi
+  function fillMahsulotSelect() {
+    var sel = $('mahsulotSelect');
+    sel.innerHTML = '<option value="">— Tanlang —</option>';
+    var seen = {};
+    state.pricing.forEach(function (p) {
+      if (!p.mahsulot || seen[p.mahsulot]) return;
+      seen[p.mahsulot] = true;
+      var opt = document.createElement('option');
+      opt.value = p.mahsulot;
+      opt.textContent = p.mahsulot;
+      sel.appendChild(opt);
+    });
+  }
+
+  // Tanlangan mahsulotga tegishli muddatlarni to'ldiradi
+  function fillMuddatiSelect(mahsulot) {
     var sel = $('muddatiSelect');
+    if (!mahsulot) {
+      sel.innerHTML = '<option value="">— Avval mahsulotni tanlang —</option>';
+      return;
+    }
     sel.innerHTML = '<option value="">— Tanlang —</option>';
     state.pricing.forEach(function (p) {
+      if (p.mahsulot !== mahsulot) return;
       var opt = document.createElement('option');
       opt.value = p.muddat;
       opt.textContent = p.muddat + ' — ' + p.qiymati;
@@ -149,12 +170,21 @@
     });
   }
 
+  function onMahsulotChange() {
+    var mahsulot = $('mahsulotSelect').value;
+    fillMuddatiSelect(mahsulot);
+    $('muddatiSelect').value = '';
+    $('priceHint').classList.add('hidden');
+  }
+
   function onMuddatiChange() {
+    var mahsulot = $('mahsulotSelect').value;
     var val = $('muddatiSelect').value;
-    var item = state.pricing.filter(function (p) { return p.muddat === val; })[0];
+    var item = state.pricing.filter(function (p) {
+      return p.mahsulot === mahsulot && p.muddat === val;
+    })[0];
     if (item) {
       // Buyurtmachi shu kartaga to'lov qiladi (ma'lumot uchun ko'rsatamiz).
-      // To'lov qilingan karta raqamini buyurtmachi o'zi kiritadi.
       $('priceHint').classList.remove('hidden');
       $('priceHint').innerHTML = 'Narx: <strong>' + escapeHtml(item.qiymati) +
         '</strong><br>Quyidagi kartaga to\'lov qiling: <strong>' + escapeHtml(item.karta) + '</strong>';
@@ -194,6 +224,7 @@
       var html = '';
       html += detailRow('Holati', badge, true);
       html += detailRow('Buyurtmachi F.I.O', escapeHtml(latest.fio));
+      html += detailRow('Mahsulot', escapeHtml(latest.mahsulot));
       html += detailRow('Product Key', escapeHtml(latest.productKey));
       html += detailRow('Muddati', escapeHtml(latest.muddati));
       html += detailRow('To\'lov kartasi', escapeHtml(latest.tolovKartasi));
@@ -248,6 +279,8 @@
   function prefillForm(order) {
     if (order) {
       $('fioInput').value = order.fio || '';
+      $('mahsulotSelect').value = order.mahsulot || '';
+      fillMuddatiSelect(order.mahsulot || '');
       $('productKeyInput').value = order.productKey || '';
       $('muddatiSelect').value = order.muddati || '';
       $('tolovKartasiInput').value = order.tolovKartasi || '';
@@ -269,6 +302,8 @@
     $('orderFormTitle').textContent = 'Qayta buyurtma berish';
     $('submitOrderBtn').textContent = 'Buyurtma berish';
     $('fioInput').value = '';
+    $('mahsulotSelect').value = '';
+    fillMuddatiSelect('');
     $('productKeyInput').value = '';
     $('muddatiSelect').value = '';
     $('tolovKartasiInput').value = '';
@@ -282,6 +317,7 @@
     var data = {
       phone: state.phone,
       fio: $('fioInput').value.trim(),
+      mahsulot: $('mahsulotSelect').value,
       productKey: $('productKeyInput').value.trim(),
       muddati: $('muddatiSelect').value,
       tolovKartasi: $('tolovKartasiInput').value.trim(),
@@ -290,6 +326,7 @@
 
     // Mijoz tomonida validatsiya
     if (!data.fio) return setMsg('orderMsg', 'Buyurtmachi F.I.O ni kiriting.', 'error');
+    if (!data.mahsulot) return setMsg('orderMsg', 'Mahsulotni tanlang.', 'error');
     if (!data.productKey) return setMsg('orderMsg', 'Product Key ni kiriting.', 'error');
     if (!data.muddati) return setMsg('orderMsg', 'Muddatini tanlang.', 'error');
     if (!data.tolovKartasi) return setMsg('orderMsg', 'To\'lov kartasi aniqlanmadi.', 'error');
@@ -376,6 +413,7 @@
       var status = (o.holati || '').trim();
       var isRejected = status === 'Rad etilgan';
       var isApproved = hasKey || status === 'Tasdiqlangan';
+      var isClassifier = (o.mahsulot || '').toLowerCase().indexOf('klassifikator') !== -1;
       var tr = document.createElement('tr');
 
       // Holati ustuni
@@ -394,9 +432,15 @@
       if (isApproved) {
         amalCell = '<span class="muted">✔ berilgan</span>';
       } else {
-        // Kutilmoqda yoki rad etilgan -> tasdiqlash/rad etish mumkin
-        amalCell = '<div class="act-cell">' +
-          '<button class="btn btn-success btn-sm" onclick="approveOrder(' + o.row + ')">Tasdiqlash</button>';
+        amalCell = '<div class="act-cell">';
+        if (isClassifier) {
+          // RSA litsenziya avtomatik ishlab chiqiladi
+          amalCell += '<button class="btn btn-success btn-sm" onclick="approveOrder(' + o.row + ',true)">Tasdiqlash (auto)</button>';
+        } else {
+          // Boshqa mahsulot -> kalit qo'lda kiritiladi
+          amalCell += '<input class="key-input" id="mkey_' + o.row + '" placeholder="Activation key...">' +
+            '<button class="btn btn-success btn-sm" onclick="approveOrder(' + o.row + ',false)">Tasdiqlash</button>';
+        }
         if (!isRejected) {
           amalCell += '<button class="btn btn-danger btn-sm" onclick="rejectOrder(' + o.row + ')">Rad etish</button>';
         }
@@ -407,6 +451,7 @@
         '<td>' + (idx + 1) + '</td>' +
         '<td>' + escapeHtml(o.fio) + '</td>' +
         '<td>' + escapeHtml(o.telefon) + '</td>' +
+        '<td>' + escapeHtml(o.mahsulot) + '</td>' +
         '<td>' + escapeHtml(o.productKey) + '</td>' +
         '<td>' + escapeHtml(o.muddati) + '</td>' +
         '<td>' + escapeHtml(o.tolovKartasi) + '</td>' +
@@ -418,9 +463,18 @@
     });
   }
 
-  // Buyurtmani tasdiqlash -> server RSA orqali litsenziya yaratadi
-  function approveOrder(row) {
-    if (!confirm('Buyurtmani tasdiqlaysizmi? Litsenziya (Activation key) avtomatik ishlab chiqiladi.')) return;
+  // Buyurtmani tasdiqlash.
+  // isAuto=true bo'lsa (klassifikator) server RSA litsenziya yaratadi;
+  // aks holda admin kiritgan kalit (mkey_<row>) yuboriladi.
+  function approveOrder(row, isAuto) {
+    var manualKey = '';
+    if (isAuto) {
+      if (!confirm('Buyurtmani tasdiqlaysizmi? Litsenziya (Activation key) avtomatik ishlab chiqiladi.')) return;
+    } else {
+      var input = $('mkey_' + row);
+      manualKey = input ? input.value.trim() : '';
+      if (!manualKey) { alert('Activation key ni kiriting.'); return; }
+    }
     showLoader(true);
     google.script.run
       .withSuccessHandler(function (res) {
@@ -432,7 +486,7 @@
         showLoader(false);
         alert('Server xatosi: ' + err.message);
       })
-      .approveOrder(state.phone, row);
+      .approveOrder(state.phone, row, manualKey);
   }
 
   // Buyurtmani rad etish
@@ -479,6 +533,7 @@
     $('passwordBtn').addEventListener('click', submitPassword);
     $('changePhoneBtn').addEventListener('click', backToPhone);
     $('submitOrderBtn').addEventListener('click', submitOrder);
+    $('mahsulotSelect').addEventListener('change', onMahsulotChange);
     $('muddatiSelect').addEventListener('change', onMuddatiChange);
     $('adminSearch').addEventListener('input', filterAdminOrders);
 

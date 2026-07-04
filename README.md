@@ -17,11 +17,21 @@ Google Sheets ma'lumotlari asosida ishlaydigan buyurtma berish web-ilovasi. Ilov
 - **Boshqaruv paneli (admin)**:
   - Barcha buyurtmalarni jadval ko'rinishida ko'rish, qidirish va statistika.
   - Har bir buyurtma uchun **Tasdiqlash** yoki **Rad etish** tugmasi.
-  - **Tasdiqlanganda** — `LOGIN` sahifasidagi RSA maxfiy kalit yordamida litsenziya (`Activation_key`) **avtomatik ishlab chiqiladi** va buyurtmachiga ko'rsatiladi.
+  - **Tasdiqlanganda**, mahsulotga qarab:
+    - **Shartli belgilar klassifikatori** — `LOGIN`dagi RSA maxfiy kalit yordamida litsenziya **avtomatik** ishlab chiqiladi ("Tasdiqlash (auto)").
+    - **Boshqa mahsulotlar** (Google xaritasi, Topograf/UZKAD) — admin `Activation_key`ni **qo'lda** kiritadi (avtomatik usullar keyin qo'shiladi).
 
 ## Litsenziya (Activation key) ishlab chiqish
 
-Admin buyurtmani tasdiqlaganda, server tomonda `Topography` mahsulotining `LicenseTopo.ValidateLicense` algoritmiga to'liq mos litsenziya yaratiladi:
+Litsenziya berish usuli **mahsulotga bog'liq**:
+
+| Mahsulot | Usul |
+|----------|------|
+| Shartli belgilar klassifikatori | RSA imzo bilan avtomatik (quyida) |
+| Google xaritasi | Admin qo'lda kiritadi (usul keyin) |
+| Topograf (UZKAD migratsiya) | Admin qo'lda kiritadi (usul keyin) |
+
+Mahsulot nomi tarkibida "klassifikator" so'zi bo'lsa, avtomatik RSA usuli ishlaydi. Quyidagi algoritm `Topography` mahsulotining `LicenseTopo.ValidateLicense`iga to'liq mos:
 
 1. **Product Key** (Machine ID, Base32) → Base32-dekod → GZip-yechish → `ProcessorId`.
 2. **Muddati** (`NARXLANISH`dan) → amal qilish sanasi → .NET `ticks` (UTC).
@@ -38,14 +48,18 @@ Admin buyurtmani tasdiqlaganda, server tomonda `Topography` mahsulotining `Licen
 Ilova quyidagi 3 ta sahifa (varaq) mavjudligini kutadi:
 
 ### `NARXLANISH`
-| Muddat | Qiymati | Karta_raqami |
-|--------|---------|--------------|
-| 1 oy   | 1 000 000,00 so'm | 8600 1234 4567 7894 |
-| ...    | ...     | ...          |
+| Mahsulot | Muddat | Qiymati | Karta_raqami |
+|----------|--------|---------|--------------|
+| Shartli belgilar klassifikatori | 1 oy | 1 000 000,00 so'm | 8600 1234 4567 7894 |
+| Google xaritasi | 1 oy | 50 000,00 so'm | 8600 1234 4567 7894 |
+| Topograf (UZKAD migratsiya) | 1 oy | 75 000,00 so'm | 8600 1234 4567 7894 |
+| ... | ... | ... | ... |
+
+> Narx **mahsulot + muddat** juftligiga bog'liq. Buyurtma panelida avval mahsulot, so'ng shu mahsulotga tegishli muddat tanlanadi.
 
 ### `BUYURTMA`
-| Buyurtmachi_FIO | Telefon_raqami | Product_Key | Activation_key | Muddati | Tolov_kartasi | Tolov_vaqti | Holati |
-|-----------------|----------------|-------------|----------------|---------|---------------|-------------|--------|
+| Buyurtmachi_FIO | Telefon_raqami | Mahsulot | Product_Key | Activation_key | Muddati | Tolov_kartasi | Tolov_vaqti | Holati |
+|-----------------|----------------|----------|-------------|----------------|---------|---------------|-------------|--------|
 
 > `Holati` ustuni (H) ilova tomonidan avtomatik boshqariladi: `Kutilmoqda` / `Tasdiqlangan` / `Rad etilgan`. Ustun bo'lmasa, ilova uni o'zi qo'shadi.
 

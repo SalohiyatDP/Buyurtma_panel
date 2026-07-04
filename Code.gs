@@ -13,21 +13,32 @@ var SHEET_BUYURTMA = 'BUYURTMA';
 var SHEET_LOGIN = 'LOGIN';
 
 // BUYURTMA ustunlari tartibi (1-indeksli)
+// A=FIO B=Telefon C=Mahsulot D=Product_Key E=Activation_key F=Muddati G=Tolov_kartasi H=Tolov_vaqti I=Holati
 var COL = {
   FIO: 1,
   TELEFON: 2,
-  PRODUCT_KEY: 3,
-  ACTIVATION_KEY: 4,
-  MUDDATI: 5,
-  TOLOV_KARTASI: 6,
-  TOLOV_VAQTI: 7,
-  HOLATI: 8 // Kutilmoqda | Tasdiqlangan | Rad etilgan (avtomatik qo'shiladi)
+  MAHSULOT: 3,
+  PRODUCT_KEY: 4,
+  ACTIVATION_KEY: 5,
+  MUDDATI: 6,
+  TOLOV_KARTASI: 7,
+  TOLOV_VAQTI: 8,
+  HOLATI: 9 // Kutilmoqda | Tasdiqlangan | Rad etilgan (avtomatik qo'shiladi)
 };
+
+// BUYURTMA sahifasidagi ustunlar soni
+var BUYURTMA_COLS = 9;
 
 // Buyurtma holatlari
 var STATUS_PENDING = 'Kutilmoqda';
 var STATUS_APPROVED = 'Tasdiqlangan';
 var STATUS_REJECTED = 'Rad etilgan';
+
+// RSA litsenziya faqat shu mahsulot uchun avtomatik ishlab chiqiladi.
+// Boshqa mahsulotlar uchun admin kalitni qo'lda kiritadi (usullari keyin qo'shiladi).
+function isClassifierProduct_(mahsulot) {
+  return String(mahsulot || '').toLowerCase().indexOf('klassifikator') !== -1;
+}
 
 /**
  * Web-ilovaning kirish nuqtasi.
@@ -138,21 +149,24 @@ function verifyAdminPassword(phone, password) {
 
 /**
  * NARXLANISH sahifasidagi barcha tariflarni qaytaradi.
- * @return {Array<{muddat:string, qiymati:string, karta:string}>}
+ * Ustunlar: Mahsulot | Muddat | Qiymati | Karta_raqami
+ * @return {Array<{mahsulot:string, muddat:string, qiymati:string, karta:string}>}
  */
 function getPricing() {
   var sheet = getSheet_(SHEET_NARXLANISH);
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return [];
 
-  var values = sheet.getRange(2, 1, lastRow - 1, 3).getDisplayValues();
+  var values = sheet.getRange(2, 1, lastRow - 1, 4).getDisplayValues();
   var result = [];
   for (var i = 0; i < values.length; i++) {
-    if (String(values[i][0]).trim() === '') continue;
+    // Mahsulot yoki Muddat bo'sh bo'lsa o'tkazib yuboramiz
+    if (String(values[i][0]).trim() === '' && String(values[i][1]).trim() === '') continue;
     result.push({
-      muddat: String(values[i][0]).trim(),
-      qiymati: String(values[i][1]).trim(),
-      karta: String(values[i][2]).trim()
+      mahsulot: String(values[i][0]).trim(),
+      muddat: String(values[i][1]).trim(),
+      qiymati: String(values[i][2]).trim(),
+      karta: String(values[i][3]).trim()
     });
   }
   return result;
@@ -165,6 +179,7 @@ function rowToOrder_(row, rowIndex) {
     row: rowIndex,
     fio: String(row[COL.FIO - 1]),
     telefon: String(row[COL.TELEFON - 1]),
+    mahsulot: String(row[COL.MAHSULOT - 1]),
     productKey: String(row[COL.PRODUCT_KEY - 1]),
     activationKey: String(row[COL.ACTIVATION_KEY - 1]),
     muddati: String(row[COL.MUDDATI - 1]),
@@ -185,7 +200,7 @@ function getUserOrders(phone) {
   var orders = [];
 
   if (lastRow >= 2) {
-    var values = sheet.getRange(2, 1, lastRow - 1, 8).getDisplayValues();
+    var values = sheet.getRange(2, 1, lastRow - 1, BUYURTMA_COLS).getDisplayValues();
     for (var i = 0; i < values.length; i++) {
       if (normalizePhone_(values[i][COL.TELEFON - 1]) === norm) {
         orders.push(rowToOrder_(values[i], i + 2));
@@ -212,6 +227,7 @@ function submitOrder(data) {
     // Majburiy maydonlarni tekshirish
     var required = {
       'Buyurtmachi FIO': data.fio,
+      'Mahsulot': data.mahsulot,
       'Product Key': data.productKey,
       'Muddati': data.muddati,
       'To\'lov kartasi': data.tolovKartasi,
@@ -228,6 +244,7 @@ function submitOrder(data) {
     var newRow = [];
     newRow[COL.FIO - 1] = String(data.fio).trim();
     newRow[COL.TELEFON - 1] = "998" + norm; // to'liq formatda saqlaymiz
+    newRow[COL.MAHSULOT - 1] = String(data.mahsulot).trim();
     newRow[COL.PRODUCT_KEY - 1] = String(data.productKey).trim();
     newRow[COL.ACTIVATION_KEY - 1] = ''; // admin tasdiqlaganda to'ladi
     newRow[COL.MUDDATI - 1] = String(data.muddati).trim();
@@ -252,7 +269,7 @@ function getAllOrders() {
   var lastRow = sheet.getLastRow();
   var orders = [];
   if (lastRow >= 2) {
-    var values = sheet.getRange(2, 1, lastRow - 1, 8).getDisplayValues();
+    var values = sheet.getRange(2, 1, lastRow - 1, BUYURTMA_COLS).getDisplayValues();
     for (var i = 0; i < values.length; i++) {
       // Bo'sh qatorlarni o'tkazib yuboramiz
       if (String(values[i][COL.TELEFON - 1]).trim() === '' &&
@@ -300,34 +317,50 @@ function getRsaKeyForAdmin_(normPhone) {
  * @param {number} row
  * @return {{ok:boolean, message:string, activationKey?:string}}
  */
-function approveOrder(adminPhone, row) {
+function approveOrder(adminPhone, row, manualKey) {
   var auth = checkPhone(adminPhone);
   if (!auth.ok || !auth.isAdmin) {
     return { ok: false, message: 'Ruxsat yo\'q.' };
   }
-  var rsaXml = getRsaKeyForAdmin_(auth.phone);
-  if (!rsaXml) {
-    return { ok: false, message: 'RSA maxfiy kalit topilmadi. LOGIN sahifasidagi "RSA_kalit" ustunini to\'ldiring.' };
-  }
 
   var sheet = getSheet_(SHEET_BUYURTMA);
-  var rowData = sheet.getRange(row, 1, 1, 8).getDisplayValues()[0];
+  var rowData = sheet.getRange(row, 1, 1, BUYURTMA_COLS).getDisplayValues()[0];
+  var mahsulot = String(rowData[COL.MAHSULOT - 1]).trim();
   var productKey = String(rowData[COL.PRODUCT_KEY - 1]).trim();
   var muddati = String(rowData[COL.MUDDATI - 1]).trim();
 
-  if (!productKey) {
-    return { ok: false, message: 'Product Key bo\'sh — litsenziya yaratib bo\'lmaydi.' };
+  var activationKey;
+
+  if (isClassifierProduct_(mahsulot)) {
+    // "Shartli belgilar klassifikatori" -> RSA litsenziya avtomatik ishlab chiqiladi
+    if (!productKey) {
+      return { ok: false, message: 'Product Key bo\'sh — litsenziya yaratib bo\'lmaydi.' };
+    }
+    var rsaXml = getRsaKeyForAdmin_(auth.phone);
+    if (!rsaXml) {
+      return { ok: false, message: 'RSA maxfiy kalit topilmadi. LOGIN sahifasidagi "RSA_kalit" ustunini to\'ldiring.' };
+    }
+    try {
+      activationKey = generateLicense_(productKey, rsaXml, muddati);
+    } catch (e) {
+      return { ok: false, message: 'Litsenziya yaratishda xato: ' + e.message };
+    }
+  } else {
+    // Boshqa mahsulotlar -> admin kalitni qo'lda kiritadi (usullari keyin qo'shiladi)
+    if (!manualKey || String(manualKey).trim() === '') {
+      return {
+        ok: false,
+        needManualKey: true,
+        message: '"' + mahsulot + '" mahsuloti uchun Activation key ni qo\'lda kiriting.'
+      };
+    }
+    activationKey = String(manualKey).trim();
   }
 
-  try {
-    var licenseStr = generateLicense_(productKey, rsaXml, muddati);
-    ensureHolatiHeader_();
-    sheet.getRange(row, COL.ACTIVATION_KEY).setValue(licenseStr);
-    sheet.getRange(row, COL.HOLATI).setValue(STATUS_APPROVED);
-    return { ok: true, message: 'Litsenziya yaratildi va buyurtma tasdiqlandi.', activationKey: licenseStr };
-  } catch (e) {
-    return { ok: false, message: 'Litsenziya yaratishda xato: ' + e.message };
-  }
+  ensureHolatiHeader_();
+  sheet.getRange(row, COL.ACTIVATION_KEY).setValue(activationKey);
+  sheet.getRange(row, COL.HOLATI).setValue(STATUS_APPROVED);
+  return { ok: true, message: 'Buyurtma tasdiqlandi.', activationKey: activationKey };
 }
 
 /**
