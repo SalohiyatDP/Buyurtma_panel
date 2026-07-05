@@ -1,22 +1,43 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    Ko'p-maqsadli (multi-target) loyiha:
-      net46            -> AutoCAD 2018, 2020, 2021, 2024, AutoCAD Mechanical 2021 (.NET Framework)
-      net8.0-windows   -> AutoCAD 2025 (.NET 8)
+    Ko'p-maqsadli (multi-target) plagin:
+      net48           -> AutoCAD 2018, 2020, 2021, 2024, AutoCAD Mechanical 2021 (.NET Framework)
+      net8.0-windows  -> AutoCAD 2025 (.NET 8)
 
-    Moslik qoidasi: .NET Framework DLL eng ESKI versiya (2018) API'siga qarshi
-    qurilsa, u 2018-2024 (va Mechanical 2021) da ishlaydi (forward-compatible).
-    2025 alohida .NET 8 DLL talab qiladi.
+    MUHIM: bu loyiha AutoCAD kutubxonalarini (accoremgd.dll, acmgd.dll, acdbmgd.dll,
+    AdWindows.dll) O'RNATILGAN AutoCAD papkasidan oladi. Quyida ular AVTOMATIK topiladi.
+    Agar sizda AutoCAD boshqa joyda bo'lsa yoki topilmasa, yo'lni qo'lda bering:
 
-    Build:
-      dotnet build -c Release
-    yoki AcadDir'larni override qilib:
-      dotnet build -c Release -p:AcadDir="C:\Program Files\Autodesk\AutoCAD 2018\" -p:AcadDir2025="C:\Program Files\Autodesk\AutoCAD 2025\"
+      dotnet build -c Release -p:AcadDir="D:\Autodesk\AutoCAD 2022\"
+      dotnet build -c Release -p:AcadDir2025="D:\Autodesk\AutoCAD 2025\"
+
+    Faqat mavjud versiyalar uchun build bo'ladi (masalan faqat 2025 bo'lsa — faqat net8).
   -->
 
   <PropertyGroup>
-    <TargetFrameworks>net46;net8.0-windows</TargetFrameworks>
+    <_AcadRoot>C:\Program Files\Autodesk\</_AcadRoot>
+
+    <!-- .NET Framework (net48) uchun: eng ESKI o'rnatilgan AutoCAD'ni tanlaymiz (moslik uchun) -->
+    <AcadDir Condition="'$(AcadDir)'=='' and Exists('$(_AcadRoot)AutoCAD 2018\accoremgd.dll')">$(_AcadRoot)AutoCAD 2018\</AcadDir>
+    <AcadDir Condition="'$(AcadDir)'=='' and Exists('$(_AcadRoot)AutoCAD 2019\accoremgd.dll')">$(_AcadRoot)AutoCAD 2019\</AcadDir>
+    <AcadDir Condition="'$(AcadDir)'=='' and Exists('$(_AcadRoot)AutoCAD 2020\accoremgd.dll')">$(_AcadRoot)AutoCAD 2020\</AcadDir>
+    <AcadDir Condition="'$(AcadDir)'=='' and Exists('$(_AcadRoot)AutoCAD 2021\accoremgd.dll')">$(_AcadRoot)AutoCAD 2021\</AcadDir>
+    <AcadDir Condition="'$(AcadDir)'=='' and Exists('$(_AcadRoot)AutoCAD 2022\accoremgd.dll')">$(_AcadRoot)AutoCAD 2022\</AcadDir>
+    <AcadDir Condition="'$(AcadDir)'=='' and Exists('$(_AcadRoot)AutoCAD 2023\accoremgd.dll')">$(_AcadRoot)AutoCAD 2023\</AcadDir>
+    <AcadDir Condition="'$(AcadDir)'=='' and Exists('$(_AcadRoot)AutoCAD 2024\accoremgd.dll')">$(_AcadRoot)AutoCAD 2024\</AcadDir>
+
+    <!-- .NET 8 (net8.0-windows) uchun: AutoCAD 2025+ -->
+    <AcadDir2025 Condition="'$(AcadDir2025)'=='' and Exists('$(_AcadRoot)AutoCAD 2025\accoremgd.dll')">$(_AcadRoot)AutoCAD 2025\</AcadDir2025>
+    <AcadDir2025 Condition="'$(AcadDir2025)'=='' and Exists('$(_AcadRoot)AutoCAD 2026\accoremgd.dll')">$(_AcadRoot)AutoCAD 2026\</AcadDir2025>
+
+    <!-- Faqat mavjud versiyalar uchun target tanlaymiz -->
+    <TargetFrameworks Condition="'$(AcadDir)'!=''">net48</TargetFrameworks>
+    <TargetFrameworks Condition="'$(AcadDir2025)'!='' and '$(TargetFrameworks)'!=''">net48;net8.0-windows</TargetFrameworks>
+    <TargetFrameworks Condition="'$(AcadDir2025)'!='' and '$(TargetFrameworks)'==''">net8.0-windows</TargetFrameworks>
+    <!-- Hech biri topilmasa: net48 (AcadDir ni qo'lda bering) -->
+    <TargetFrameworks Condition="'$(TargetFrameworks)'==''">net48</TargetFrameworks>
+
     <AssemblyName>Aktivatsiya</AssemblyName>
     <RootNamespace>Aktivatsiya</RootNamespace>
     <Platforms>x64</Platforms>
@@ -28,6 +49,8 @@
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <Deterministic>true</Deterministic>
+    <!-- NuGet zaifliklarni tekshirishni o'chiramiz (timeout muammosining oldini oladi) -->
+    <NuGetAudit>false</NuGetAudit>
   </PropertyGroup>
 
   <!-- Manba fayllar -->
@@ -36,13 +59,11 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
 
-  <!-- ================= .NET Framework: AutoCAD 2018/2020/2021/2024 + Mechanical 2021 ================= -->
-  <PropertyGroup Condition="'$(TargetFramework)'=='net46'">
+  <!-- ===== .NET Framework: AutoCAD 2018/2020/2021/2024 + Mechanical 2021 ===== -->
+  <PropertyGroup Condition="'$(TargetFramework)'=='net48'">
     <OutputPath>..\Aktivatsiya.bundle\Contents\acad-net4\</OutputPath>
-    <!-- Eng eski qo'llab-quvvatlanadigan AutoCAD DLL'lariga ishora qiling (moslik uchun) -->
-    <AcadDir Condition="'$(AcadDir)'==''">C:\Program Files\Autodesk\AutoCAD 2018\</AcadDir>
   </PropertyGroup>
-  <ItemGroup Condition="'$(TargetFramework)'=='net46'">
+  <ItemGroup Condition="'$(TargetFramework)'=='net48'">
     <!-- WPF (RibbonButton ikonkasi va ICommand uchun) -->
     <Reference Include="PresentationCore" />
     <Reference Include="PresentationFramework" />
@@ -55,11 +76,10 @@
     <Reference Include="AdWindows"><HintPath>$(AcadDir)AdWindows.dll</HintPath><Private>false</Private></Reference>
   </ItemGroup>
 
-  <!-- ================= .NET 8: AutoCAD 2025 ================= -->
+  <!-- ===== .NET 8: AutoCAD 2025 ===== -->
   <PropertyGroup Condition="'$(TargetFramework)'=='net8.0-windows'">
     <UseWPF>true</UseWPF>
     <OutputPath>..\Aktivatsiya.bundle\Contents\acad-net8\</OutputPath>
-    <AcadDir2025 Condition="'$(AcadDir2025)'==''">C:\Program Files\Autodesk\AutoCAD 2025\</AcadDir2025>
   </PropertyGroup>
   <ItemGroup Condition="'$(TargetFramework)'=='net8.0-windows'">
     <Reference Include="AcCoreMgd"><HintPath>$(AcadDir2025)accoremgd.dll</HintPath><Private>false</Private></Reference>

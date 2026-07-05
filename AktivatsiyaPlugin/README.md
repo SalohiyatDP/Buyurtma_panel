@@ -44,7 +44,7 @@ https://sizning-saytingiz.uz/aktivatsiya
 
 ## 2. Build qilish
 
-**Talab:** .NET SDK (8.0), va build qilinadigan kompyuterda mos AutoCAD versiyalari o'rnatilgan bo'lishi (kerakli `.dll`'lar o'sha yerdan olinadi).
+**Talab:** .NET SDK (8.0) va kompyuterda kamida bitta mos AutoCAD versiyasi o'rnatilgan bo'lishi (kerakli `.dll`'lar o'sha yerdan olinadi).
 
 Solution papkasida:
 
@@ -52,24 +52,30 @@ Solution papkasida:
 dotnet build Aktivatsiya.sln -c Release
 ```
 
-DLL'lar avtomatik `Aktivatsiya.bundle\Contents\acad-net4\` va `...\acad-net8\` ga chiqadi.
+`.csproj` `C:\Program Files\Autodesk\` ichidan o'rnatilgan AutoCAD'ni **avtomatik topadi** va **faqat mavjud versiyalar** uchun build qiladi:
+- 2018–2024 (yoki Mechanical 2021) topilsa → `net48` → `Aktivatsiya.bundle\Contents\acad-net4\`
+- 2025+ topilsa → `net8.0-windows` → `...\acad-net8\`
 
-### AutoCAD papkalarini ko'rsatish
+Masalan, sizda faqat AutoCAD 2025 bo'lsa — faqat `net8` build bo'ladi; faqat 2024 bo'lsa — faqat `net48`.
 
-Ko'zda tutilgan yo'llar: `AutoCAD 2018` (net4 uchun) va `AutoCAD 2025` (net8 uchun). Ularni override qilish mumkin:
+### AutoCAD boshqa joyda bo'lsa (yoki topilmasa)
+
+Yo'lni qo'lda bering:
 
 ```powershell
-dotnet build Aktivatsiya.sln -c Release ^
-  -p:AcadDir="C:\Program Files\Autodesk\AutoCAD 2018\" ^
-  -p:AcadDir2025="C:\Program Files\Autodesk\AutoCAD 2025\"
+dotnet build Aktivatsiya.sln -c Release -p:AcadDir="D:\Autodesk\AutoCAD 2022\"
+dotnet build Aktivatsiya.sln -c Release -p:AcadDir2025="D:\Autodesk\AutoCAD 2025\"
 ```
 
-> **Moslik qoidasi:** .NET Framework DLL'ni **eng eski** qo'llab-quvvatlanadigan versiya (2018) API'siga qarshi qursangiz, u 2018–2024 (va Mechanical 2021) da ishlaydi. Agar bironta versiyada yuklanmasa, `AcadDir`ni o'sha versiyaga o'zgartirib qayta quring.
+- `AcadDir` — .NET Framework versiyasi (2018–2024/Mechanical) papkasi.
+- `AcadDir2025` — AutoCAD 2025 papkasi.
+
+> **Moslik qoidasi:** `net48` DLL qaysi versiya API'siga qarshi qurilsa, o'sha va undan **yangi** versiyalarda ishlaydi. Eng keng qamrov uchun `AcadDir`ni o'zingizdagi **eng eski** AutoCAD'ga qo'ying (avtomatik tanlov ham shunday qiladi). Bironta versiyada yuklanmasa, `AcadDir`ni o'sha versiyaga qo'yib qayta quring.
 
 ### Faqat bitta target'ni build qilish
 
 ```powershell
-dotnet build AktivatsiyaPlugin\Aktivatsiya.csproj -c Release -f net46            # 2018-2024
+dotnet build AktivatsiyaPlugin\Aktivatsiya.csproj -c Release -f net48            # 2018-2024 + Mechanical 2021
 dotnet build AktivatsiyaPlugin\Aktivatsiya.csproj -c Release -f net8.0-windows   # 2025
 ```
 
@@ -93,6 +99,8 @@ Ikkalasida ham `link.txt` dagi havola brauzerda ochiladi.
 
 | Muammo | Yechim |
 |--------|--------|
+| `"Autodesk" nomlar fazosi topilmadi` / `AcCoreMgd/AcDbMgd/AcMgd/AdWindows topilmadi` | AutoCAD DLL yo'li noto'g'ri. `-p:AcadDir="...\AutoCAD 20xx\"` bilan o'z papkangizni bering (ichida `accoremgd.dll` bo'lishi kerak). |
+| NuGet "vulnerability" timeout | `.csproj` da `<NuGetAudit>false</NuGetAudit>` qo'yilgan — bu xatoni bartaraf etadi. Internet sekin bo'lsa ham build davom etadi. |
 | Tab ko'rinmayapti | Mos DLL (`acad-net4` yoki `acad-net8`) mavjudmi va bundle to'g'ri papkaga ko'chirilganmi? AutoCAD qayta ishga tushirilganmi? |
 | Build: `accoremgd.dll topilmadi` | `AcadDir` / `AcadDir2025` yo'llarini o'z versiyangizga moslang. |
 | Muayyan versiyada yuklanmayapti | `AcadDir`ni o'sha versiyaga qo'yib `net46` target'ni qayta build qiling. |
