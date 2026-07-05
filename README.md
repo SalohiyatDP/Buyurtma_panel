@@ -9,6 +9,7 @@ Google Sheets ma'lumotlari asosida ishlaydigan buyurtma berish web-ilovasi. Ilov
   - Agar telefon raqami `LOGIN` sahifasida bo'lsa → parol so'raladi va **boshqaruv paneliga** (admin) yo'naltiriladi.
   - Aks holda → to'g'ridan-to'g'ri **buyurtma paneliga** yo'naltiriladi.
 - **Buyurtma paneli**:
+  - **Mahsulot** tanlanganda tagida **"Ushbu dasturiy ta'minotni yuklab olish"** tugmasi chiqadi (`MAHSULOT` → `Mahsulot_havolasi`ga yo'naltiradi).
   - Muddat tanlanganda narx va qaysi kartaga to'lash kerakligi maslahat sifatida ko'rsatiladi (`NARXLANISH` sahifasidan).
   - Buyurtmachi **mahsulot uchun to'lov o'tkazilgan karta raqami** va **to'lov o'tkazilgan sana va vaqt**ni o'zi kiritadi.
   - `Activation_key` **bo'sh** bo'lsa — majburiy maydonlar to'ldiriladi va **"Buyurtma berish"** tugmasi ko'rinadi.
@@ -18,7 +19,7 @@ Google Sheets ma'lumotlari asosida ishlaydigan buyurtma berish web-ilovasi. Ilov
   - Barcha buyurtmalarni jadval ko'rinishida ko'rish, qidirish va statistika.
   - Har bir buyurtma uchun **Tasdiqlash** yoki **Rad etish** tugmasi.
   - **Tasdiqlanganda**, mahsulotga qarab:
-    - **Shartli belgilar klassifikatori** — `LOGIN`dagi RSA maxfiy kalit yordamida litsenziya **avtomatik** ishlab chiqiladi ("Tasdiqlash (auto)").
+    - **Shartli belgilar klassifikatori** — `MAHSULOT`dagi shu mahsulot RSA maxfiy kaliti yordamida litsenziya **avtomatik** ishlab chiqiladi ("Tasdiqlash (auto)").
     - **Boshqa mahsulotlar** (Google xaritasi, Topograf/UZKAD) — admin `Activation_key`ni **qo'lda** kiritadi (avtomatik usullar keyin qo'shiladi).
 
 ## Litsenziya (Activation key) ishlab chiqish
@@ -41,11 +42,13 @@ Mahsulot nomi tarkibida "klassifikator" so'zi bo'lsa, avtomatik RSA usuli ishlay
 
 > Algoritm Node.js'da `crypto` (bu .NET `RSA.VerifyData(SHA256)` bilan bir xil) yordamida tekshirilgan — barcha muddatlar uchun imzo ochiq kalit bilan `verify=true` beradi.
 
-⚠️ **Xavfsizlik:** Yaroqli litsenziya yaratish uchun DLL ichidagi ochiq kalitga mos **RSA maxfiy kalit** (`LOGIN` → `RSA_kalit`) kerak. Maxfiy kalitsiz litsenziya yaratib bo'lmaydi.
+4-qadamdagi `RSA_kalit` endi **`MAHSULOT` sahifasidan mahsulot bo'yicha** olinadi (`MAHSULOT.Mahsulot_nomi` = buyurtmadagi `Mahsulot`).
+
+⚠️ **Xavfsizlik:** Yaroqli litsenziya yaratish uchun DLL ichidagi ochiq kalitga mos **RSA maxfiy kalit** (`MAHSULOT` → `RSA_kalit`) kerak. Maxfiy kalitsiz litsenziya yaratib bo'lmaydi. RSA kalit hech qachon mijozga (brauzerga) uzatilmaydi.
 
 ## Jadval tuzilmasi
 
-Ilova quyidagi 3 ta sahifa (varaq) mavjudligini kutadi:
+Ilova quyidagi 4 ta sahifa (varaq) mavjudligini kutadi:
 
 ### `NARXLANISH`
 | Mahsulot | Muddat | Qiymati | Karta_raqami |
@@ -64,11 +67,19 @@ Ilova quyidagi 3 ta sahifa (varaq) mavjudligini kutadi:
 > `Holati` ustuni (H) ilova tomonidan avtomatik boshqariladi: `Kutilmoqda` / `Tasdiqlangan` / `Rad etilgan`. Ustun bo'lmasa, ilova uni o'zi qo'shadi.
 
 ### `LOGIN`
-| Login | Parol | RSA_kalit |
-|-------|-------|-----------|
-| 998939113005 | Admin2012 | `<RSAKeyValue><Modulus>...</Modulus>...<D>...</D></RSAKeyValue>` |
+| Login | Parol |
+|-------|-------|
+| 998939113005 | Admin2012 |
 
-> `RSA_kalit` (C ustuni) — .NET XML formatidagi **to'liq RSA maxfiy kalit** (P, Q, DP, DQ, InverseQ, D bilan). Litsenziya imzolash uchun ishlatiladi.
+### `MAHSULOT`
+| Mahsulot_nomi | RSA_kalit | Mahsulot_havolasi |
+|---------------|-----------|-------------------|
+| Shartli belgilar klassifikatori | `<RSAKeyValue><Modulus>...</Modulus>...<D>...</D></RSAKeyValue>` | https://sayt.uz/download/klassifikator |
+| Google xaritasi | ... | https://sayt.uz/download/google-xarita |
+| Topograf (UZKAD migratsiya) | ... | https://sayt.uz/download/topograf |
+
+> - `RSA_kalit` (B ustuni) — .NET XML formatidagi **to'liq RSA maxfiy kalit** (P, Q, DP, DQ, InverseQ, D bilan). Litsenziya imzolash uchun ishlatiladi. Serverda qoladi — mijozga uzatilmaydi.
+> - `Mahsulot_havolasi` (C ustuni) — dasturiy ta'minotni yuklab olish havolasi. Buyurtma panelida mahsulot tanlanganda **"Ushbu dasturiy ta'minotni yuklab olish"** tugmasi shu havolaga yo'naltiradi. Katak matn ko'rinishida yoki hyperlink bo'lishi mumkin.
 
 > **Eslatma:** Telefon raqamlari solishtirilganda faqat raqamlar hisobga olinadi (`+`, bo'shliq, `998` prefiksi e'tiborsiz qoldiriladi), shuning uchun `+998 93 911 30 05` va `998939113005` bir xil hisoblanadi.
 

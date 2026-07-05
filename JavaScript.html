@@ -4,6 +4,8 @@
     phone: '',
     isAdmin: false,
     pricing: [],
+    products: [],
+    productLinks: {},
     adminOrders: []
   };
 
@@ -148,18 +150,48 @@
     $('orderUserPhone').textContent = formatPhoneStr(state.phone);
     showLoader(true);
 
-    // Narxlanish va foydalanuvchi buyurtmalarini parallel yuklaymiz
+    // Avval narxlanishni yuklaymiz
     google.script.run
       .withSuccessHandler(function (pricing) {
         state.pricing = pricing || [];
         fillMahsulotSelect();
-        loadUserOrders();
+        loadProductsThenOrders();
       })
       .withFailureHandler(function (err) {
         showLoader(false);
         setMsg('orderMsg', 'Narxlarni yuklashda xatolik: ' + err.message, 'error');
       })
       .getPricing();
+  }
+
+  // Mahsulotlar (yuklab olish havolalari) va so'ng buyurtmalarni yuklaydi
+  function loadProductsThenOrders() {
+    google.script.run
+      .withSuccessHandler(function (products) {
+        state.products = products || [];
+        state.productLinks = {};
+        state.products.forEach(function (p) { state.productLinks[p.nomi] = p.havola; });
+        loadUserOrders();
+      })
+      .withFailureHandler(function (err) {
+        showLoader(false);
+        setMsg('orderMsg', 'Mahsulotlarni yuklashda xatolik: ' + err.message, 'error');
+      })
+      .getProducts();
+  }
+
+  // Tanlangan mahsulot uchun "yuklab olish" tugmasini yangilaydi
+  function updateDownloadButton(mahsulot) {
+    var btn = $('downloadBtn');
+    var link = (mahsulot && state.productLinks) ? state.productLinks[mahsulot] : '';
+    if (link) {
+      var url = (String(link).indexOf('://') === -1) ? 'https://' + link : link;
+      btn.href = url;
+      btn.classList.remove('hidden');
+    } else {
+      btn.classList.add('hidden');
+      btn.removeAttribute('href');
+    }
   }
 
   // Mahsulotlar ro'yxatini (takrorlanmas) to'ldiradi
@@ -199,6 +231,7 @@
     fillMuddatiSelect(mahsulot);
     $('muddatiSelect').value = '';
     $('priceHint').classList.add('hidden');
+    updateDownloadButton(mahsulot);
   }
 
   function onMuddatiChange() {
@@ -305,6 +338,7 @@
       $('fioInput').value = order.fio || '';
       $('mahsulotSelect').value = order.mahsulot || '';
       fillMuddatiSelect(order.mahsulot || '');
+      updateDownloadButton(order.mahsulot || '');
       $('productKeyInput').value = order.productKey || '';
       $('muddatiSelect').value = order.muddati || '';
       $('tolovKartasiInput').value = order.tolovKartasi || '';
@@ -328,6 +362,7 @@
     $('fioInput').value = '';
     $('mahsulotSelect').value = '';
     fillMuddatiSelect('');
+    updateDownloadButton('');
     $('productKeyInput').value = '';
     $('muddatiSelect').value = '';
     $('tolovKartasiInput').value = '';

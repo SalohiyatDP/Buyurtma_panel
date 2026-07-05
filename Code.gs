@@ -11,6 +11,7 @@
 var SHEET_NARXLANISH = 'NARXLANISH';
 var SHEET_BUYURTMA = 'BUYURTMA';
 var SHEET_LOGIN = 'LOGIN';
+var SHEET_MAHSULOT = 'MAHSULOT'; // Mahsulot_nomi | RSA_kalit | Mahsulot_havolasi
 
 // BUYURTMA ustunlari tartibi (1-indeksli)
 // A=FIO B=Telefon C=Mahsulot D=Product_Key E=Activation_key F=Muddati G=Tolov_kartasi H=Tolov_vaqti I=Holati
@@ -298,22 +299,65 @@ function ensureHolatiHeader_() {
   }
 }
 
+function normalizeName_(s) {
+  return String(s == null ? '' : s).trim().toLowerCase();
+}
+
 /**
- * LOGIN sahifasidan admin telefoniga tegishli RSA maxfiy kalitni (C ustuni) qaytaradi.
- * @param {string} normPhone normalizatsiya qilingan telefon
+ * MAHSULOT sahifasidan berilgan mahsulot uchun RSA maxfiy kalitni (B ustuni) qaytaradi.
+ * @param {string} productName
  * @return {string} .NET XML formatidagi RSA maxfiy kalit yoki ''
  */
-function getRsaKeyForAdmin_(normPhone) {
-  var sheet = getSheet_(SHEET_LOGIN);
+function getRsaKeyForProduct_(productName) {
+  var sheet = getSheet_(SHEET_MAHSULOT);
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return '';
-  var rows = sheet.getRange(2, 1, lastRow - 1, 3).getValues();
+  var target = normalizeName_(productName);
+  var rows = sheet.getRange(2, 1, lastRow - 1, 2).getValues(); // A=nomi, B=RSA_kalit
   for (var i = 0; i < rows.length; i++) {
-    if (normalizePhone_(rows[i][0]) === normPhone) {
-      return String(rows[i][2] || '').trim();
+    if (normalizeName_(rows[i][0]) === target) {
+      return String(rows[i][1] || '').trim();
     }
   }
   return '';
+}
+
+/**
+ * MAHSULOT sahifasidagi mahsulotlar ro'yxatini (nom + yuklab olish havolasi) qaytaradi.
+ * RSA kalit MIJOZGA UZATILMAYDI (xavfsizlik uchun).
+ * @return {Array<{nomi:string, havola:string}>}
+ */
+function getProducts() {
+  var sheet = getSheet_(SHEET_MAHSULOT);
+  var lastRow = sheet.getLastRow();
+  var result = [];
+  if (lastRow < 2) return result;
+
+  var values = sheet.getRange(2, 1, lastRow - 1, 3).getDisplayValues();
+  var richC = sheet.getRange(2, 3, lastRow - 1, 1).getRichTextValues(); // C ustuni havolalari
+
+  for (var i = 0; i < values.length; i++) {
+    var nomi = String(values[i][0]).trim();
+    if (nomi === '') continue;
+    var havola = String(values[i][2]).trim();
+
+    // Agar katak havola (hyperlink) sifatida bo'lsa, haqiqiy URL'ni olamiz
+    try {
+      var rt = richC[i][0];
+      var link = rt ? rt.getLinkUrl() : null;
+      if (!link && rt && rt.getRuns) {
+        var runs = rt.getRuns();
+        for (var r = 0; r < runs.length; r++) {
+          var u = runs[r].getLinkUrl();
+          if (u) { link = u; break; }
+        }
+      }
+      if (link) havola = link;
+    } catch (e) { /* rich text bo'lmasa, matn qiymati ishlatiladi */ }
+
+    result.push({ nomi: nomi, havola: havola });
+  }
+  return result;
 }
 
 /**
@@ -342,9 +386,9 @@ function approveOrder(adminPhone, row, manualKey) {
     if (!productKey) {
       return { ok: false, message: 'Product Key bo\'sh — litsenziya yaratib bo\'lmaydi.' };
     }
-    var rsaXml = getRsaKeyForAdmin_(auth.phone);
+    var rsaXml = getRsaKeyForProduct_(mahsulot);
     if (!rsaXml) {
-      return { ok: false, message: 'RSA maxfiy kalit topilmadi. LOGIN sahifasidagi "RSA_kalit" ustunini to\'ldiring.' };
+      return { ok: false, message: 'RSA maxfiy kalit topilmadi. MAHSULOT sahifasida "' + mahsulot + '" uchun RSA_kalit ustunini to\'ldiring.' };
     }
     try {
       activationKey = generateLicense_(productKey, rsaXml, muddati);
