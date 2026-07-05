@@ -475,7 +475,6 @@
       var status = (o.holati || '').trim();
       var isRejected = status === 'Rad etilgan';
       var isApproved = hasKey || status === 'Tasdiqlangan';
-      var isClassifier = (o.mahsulot || '').toLowerCase().indexOf('klassifikator') !== -1;
       var tr = document.createElement('tr');
 
       // Holati ustuni
@@ -497,18 +496,11 @@
         // Rad etilgan buyurtmada amal tugmasi bo'lmaydi
         amalCell = '<span class="muted">—</span>';
       } else {
-        // Faqat "Kutilmoqda" holatida tasdiqlash/rad etish mumkin
-        amalCell = '<div class="act-cell">';
-        if (isClassifier) {
-          // RSA litsenziya avtomatik ishlab chiqiladi
-          amalCell += '<button class="btn btn-success btn-sm" onclick="approveOrder(' + o.row + ',true)">Tasdiqlash (auto)</button>';
-        } else {
-          // Boshqa mahsulot -> kalit qo'lda kiritiladi
-          amalCell += '<input class="key-input" id="mkey_' + o.row + '" placeholder="Activation key...">' +
-            '<button class="btn btn-success btn-sm" onclick="approveOrder(' + o.row + ',false)">Tasdiqlash</button>';
-        }
-        amalCell += '<button class="btn btn-danger btn-sm" onclick="rejectOrder(' + o.row + ')">Rad etish</button>';
-        amalCell += '</div>';
+        // Faqat "Kutilmoqda" holatida: RSA litsenziya avtomatik ishlab chiqiladi
+        amalCell = '<div class="act-cell">' +
+          '<button class="btn btn-success btn-sm" onclick="approveOrder(' + o.row + ')">Tasdiqlash</button>' +
+          '<button class="btn btn-danger btn-sm" onclick="rejectOrder(' + o.row + ')">Rad etish</button>' +
+          '</div>';
       }
 
       tr.innerHTML =
@@ -527,18 +519,9 @@
     });
   }
 
-  // Buyurtmani tasdiqlash.
-  // isAuto=true bo'lsa (klassifikator) server RSA litsenziya yaratadi;
-  // aks holda admin kiritgan kalit (mkey_<row>) yuboriladi.
-  function approveOrder(row, isAuto) {
-    var manualKey = '';
-    if (isAuto) {
-      if (!confirm('Buyurtmani tasdiqlaysizmi? Litsenziya (Activation key) avtomatik ishlab chiqiladi.')) return;
-    } else {
-      var input = $('mkey_' + row);
-      manualKey = input ? input.value.trim() : '';
-      if (!manualKey) { alert('Activation key ni kiriting.'); return; }
-    }
+  // Buyurtmani tasdiqlash -> server o'sha mahsulot RSA kaliti bilan litsenziya yaratadi
+  function approveOrder(row) {
+    if (!confirm('Buyurtmani tasdiqlaysizmi? Litsenziya (Activation key) avtomatik ishlab chiqiladi.')) return;
     showLoader(true);
     google.script.run
       .withSuccessHandler(function (res) {
@@ -550,7 +533,7 @@
         showLoader(false);
         alert('Server xatosi: ' + err.message);
       })
-      .approveOrder(state.phone, row, manualKey);
+      .approveOrder(state.phone, row);
   }
 
   // Buyurtmani rad etish

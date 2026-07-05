@@ -18,21 +18,11 @@ Google Sheets ma'lumotlari asosida ishlaydigan buyurtma berish web-ilovasi. Ilov
 - **Boshqaruv paneli (admin)**:
   - Barcha buyurtmalarni jadval ko'rinishida ko'rish, qidirish va statistika.
   - Har bir buyurtma uchun **Tasdiqlash** yoki **Rad etish** tugmasi.
-  - **Tasdiqlanganda**, mahsulotga qarab:
-    - **Shartli belgilar klassifikatori** — `MAHSULOT`dagi shu mahsulot RSA maxfiy kaliti yordamida litsenziya **avtomatik** ishlab chiqiladi ("Tasdiqlash (auto)").
-    - **Boshqa mahsulotlar** (Google xaritasi, Topograf/UZKAD) — admin `Activation_key`ni **qo'lda** kiritadi (avtomatik usullar keyin qo'shiladi).
+  - **Tasdiqlanganda** — har bir mahsulot **o'zining** `MAHSULOT`dagi RSA maxfiy kaliti yordamida litsenziya (`Activation_key`) **avtomatik** ishlab chiqiladi va buyurtmachiga ko'rsatiladi.
 
 ## Litsenziya (Activation key) ishlab chiqish
 
-Litsenziya berish usuli **mahsulotga bog'liq**:
-
-| Mahsulot | Usul |
-|----------|------|
-| Shartli belgilar klassifikatori | RSA imzo bilan avtomatik (quyida) |
-| Google xaritasi | Admin qo'lda kiritadi (usul keyin) |
-| Topograf (UZKAD migratsiya) | Admin qo'lda kiritadi (usul keyin) |
-
-Mahsulot nomi tarkibida "klassifikator" so'zi bo'lsa, avtomatik RSA usuli ishlaydi. Quyidagi algoritm `Topography` mahsulotining `LicenseTopo.ValidateLicense`iga to'liq mos:
+**Har bir mahsulot o'zining RSA maxfiy kaliti bilan aktivatsiya qilinadi** (`MAHSULOT` → `RSA_kalit`). Admin buyurtmani tasdiqlaganda, o'sha mahsulot kaliti bilan litsenziya avtomatik yaratiladi. Algoritm `Topography` mahsulotining `LicenseTopo.ValidateLicense`iga to'liq mos:
 
 1. **Product Key** (Machine ID, Base32) → Base32-dekod → GZip-yechish → `ProcessorId`.
 2. **Muddati** (`NARXLANISH`dan) → amal qilish sanasi → .NET `ticks` (UTC).

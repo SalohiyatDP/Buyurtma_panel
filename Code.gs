@@ -35,11 +35,7 @@ var STATUS_PENDING = 'Kutilmoqda';
 var STATUS_APPROVED = 'Tasdiqlangan';
 var STATUS_REJECTED = 'Rad etilgan';
 
-// RSA litsenziya faqat shu mahsulot uchun avtomatik ishlab chiqiladi.
-// Boshqa mahsulotlar uchun admin kalitni qo'lda kiritadi (usullari keyin qo'shiladi).
-function isClassifierProduct_(mahsulot) {
-  return String(mahsulot || '').toLowerCase().indexOf('klassifikator') !== -1;
-}
+
 
 /**
  * Web-ilovaning kirish nuqtasi.
@@ -367,7 +363,7 @@ function getProducts() {
  * @param {number} row
  * @return {{ok:boolean, message:string, activationKey?:string}}
  */
-function approveOrder(adminPhone, row, manualKey) {
+function approveOrder(adminPhone, row) {
   var auth = checkPhone(adminPhone);
   if (!auth.ok || !auth.isAdmin) {
     return { ok: false, message: 'Ruxsat yo\'q.' };
@@ -379,38 +375,26 @@ function approveOrder(adminPhone, row, manualKey) {
   var productKey = String(rowData[COL.PRODUCT_KEY - 1]).trim();
   var muddati = String(rowData[COL.MUDDATI - 1]).trim();
 
-  var activationKey;
+  // Har bir mahsulot o'z RSA kaliti bilan aktivatsiya qilinadi
+  if (!productKey) {
+    return { ok: false, message: 'Product Key bo\'sh — litsenziya yaratib bo\'lmaydi.' };
+  }
+  var rsaXml = getRsaKeyForProduct_(mahsulot);
+  if (!rsaXml) {
+    return { ok: false, message: 'RSA maxfiy kalit topilmadi. MAHSULOT sahifasida "' + mahsulot + '" uchun RSA_kalit ustunini to\'ldiring.' };
+  }
 
-  if (isClassifierProduct_(mahsulot)) {
-    // "Shartli belgilar klassifikatori" -> RSA litsenziya avtomatik ishlab chiqiladi
-    if (!productKey) {
-      return { ok: false, message: 'Product Key bo\'sh — litsenziya yaratib bo\'lmaydi.' };
-    }
-    var rsaXml = getRsaKeyForProduct_(mahsulot);
-    if (!rsaXml) {
-      return { ok: false, message: 'RSA maxfiy kalit topilmadi. MAHSULOT sahifasida "' + mahsulot + '" uchun RSA_kalit ustunini to\'ldiring.' };
-    }
-    try {
-      activationKey = generateLicense_(productKey, rsaXml, muddati);
-    } catch (e) {
-      return { ok: false, message: 'Litsenziya yaratishda xato: ' + e.message };
-    }
-  } else {
-    // Boshqa mahsulotlar -> admin kalitni qo'lda kiritadi (usullari keyin qo'shiladi)
-    if (!manualKey || String(manualKey).trim() === '') {
-      return {
-        ok: false,
-        needManualKey: true,
-        message: '"' + mahsulot + '" mahsuloti uchun Activation key ni qo\'lda kiriting.'
-      };
-    }
-    activationKey = String(manualKey).trim();
+  var activationKey;
+  try {
+    activationKey = generateLicense_(productKey, rsaXml, muddati);
+  } catch (e) {
+    return { ok: false, message: 'Litsenziya yaratishda xato: ' + e.message };
   }
 
   ensureHolatiHeader_();
   sheet.getRange(row, COL.ACTIVATION_KEY).setValue(activationKey);
   sheet.getRange(row, COL.HOLATI).setValue(STATUS_APPROVED);
-  return { ok: true, message: 'Buyurtma tasdiqlandi.', activationKey: activationKey };
+  return { ok: true, message: 'Litsenziya yaratildi va buyurtma tasdiqlandi.', activationKey: activationKey };
 }
 
 /**
