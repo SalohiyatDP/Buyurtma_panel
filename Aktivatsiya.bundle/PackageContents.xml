@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  AutoCAD "ApplicationPlugins" avtoyuklash manifesti.
+  Butun "Aktivatsiya.bundle" papkasini quyidagi joylardan biriga ko'chiring:
+    %APPDATA%\Autodesk\ApplicationPlugins\
+    %PROGRAMFILES%\Autodesk\ApplicationPlugins\
+  So'ng AutoCAD qayta ishga tushirilsa, lentada "Aktivatsiya" tabi paydo bo'ladi.
+-->
+<ApplicationPackage
+    SchemaVersion="1.0"
+    AutodeskProduct="AutoCAD"
+    Name="Aktivatsiya"
+    AppVersion="1.0.0"
+    ProductCode="{7F3A2C10-2B4D-4E9A-9C21-8A1B2C3D4E5F}"
+    Description="Aktivatsiya plagini — lentadagi tugma orqali link.txt dagi havolani ochadi"
+    Author="SalohiyatDP">
+
+  <CompanyDetails Name="SalohiyatDP" />
+
+  <Components Description="Aktivatsiya .NET moduli">
+    <RuntimeRequirements OS="Win64" Platform="AutoCAD*" SeriesMin="R23.0" />
+    <ComponentEntry
+        AppName="Aktivatsiya"
+        Version="1.0.0"
+        ModuleName="./Contents/Aktivatsiya.dll"
+        LoadOnAutoCADStartup="True"
+        AppType=".NET" />
+  </Components>
+</ApplicationPackage>
