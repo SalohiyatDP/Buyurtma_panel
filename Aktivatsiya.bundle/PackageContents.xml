@@ -5,6 +5,11 @@
     %APPDATA%\Autodesk\ApplicationPlugins\
     %PROGRAMFILES%\Autodesk\ApplicationPlugins\
   So'ng AutoCAD qayta ishga tushirilsa, lentada "Aktivatsiya" tabi paydo bo'ladi.
+
+  AutoCAD versiyalari (R-raqami):
+    2018=R22.0  2019=R23.0  2020=R23.1  2021=R24.0  2022=R24.1
+    2023=R24.2  2024=R24.3  2025=R25.0
+  Platform="AutoCAD*" — AutoCAD Mechanical kabi variantlarni ham qamrab oladi.
 -->
 <ApplicationPackage
     SchemaVersion="1.0"
@@ -17,12 +22,22 @@
 
   <CompanyDetails Name="SalohiyatDP" />
 
-  <Components Description="Aktivatsiya .NET moduli">
-    <RuntimeRequirements OS="Win64" Platform="AutoCAD*" SeriesMin="R23.0" />
+  <Components Description="AutoCAD 2018-2024 va Mechanical 2021 (.NET Framework)">
+    <RuntimeRequirements OS="Win64" Platform="AutoCAD*" SeriesMin="R22.0" SeriesMax="R24.3" />
     <ComponentEntry
-        AppName="Aktivatsiya"
+        AppName="Aktivatsiya-net4"
         Version="1.0.0"
-        ModuleName="./Contents/Aktivatsiya.dll"
+        ModuleName="./Contents/acad-net4/Aktivatsiya.dll"
+        LoadOnAutoCADStartup="True"
+        AppType=".NET" />
+  </Components>
+
+  <Components Description="AutoCAD 2025+ (.NET 8)">
+    <RuntimeRequirements OS="Win64" Platform="AutoCAD*" SeriesMin="R25.0" />
+    <ComponentEntry
+        AppName="Aktivatsiya-net8"
+        Version="1.0.0"
+        ModuleName="./Contents/acad-net8/Aktivatsiya.dll"
         LoadOnAutoCADStartup="True"
         AppType=".NET" />
   </Components>

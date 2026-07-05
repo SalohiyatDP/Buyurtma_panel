@@ -2,92 +2,99 @@
 
 AutoCAD lentasida (ribbon) **"Aktivatsiya"** tabi va undagi yagona **"Aktivatsiya qilish"** tugmasini qo'shadi. Tugma bosilganda `Contents/link.txt` faylidagi havola brauzerda ochiladi.
 
+## Qo'llab-quvvatlanadigan versiyalar
+
+| AutoCAD versiyasi | R-raqami | Runtime | Yuklanadigan DLL |
+|-------------------|----------|---------|------------------|
+| 2018 | R22.0 | .NET Framework | `Contents/acad-net4/Aktivatsiya.dll` |
+| 2020 | R23.1 | .NET Framework | `Contents/acad-net4/Aktivatsiya.dll` |
+| 2021 | R24.0 | .NET Framework | `Contents/acad-net4/Aktivatsiya.dll` |
+| **AutoCAD Mechanical 2021** | R24.0 | .NET Framework | `Contents/acad-net4/Aktivatsiya.dll` |
+| 2024 | R24.3 | .NET Framework | `Contents/acad-net4/Aktivatsiya.dll` |
+| 2025 | R25.0 | .NET 8 | `Contents/acad-net8/Aktivatsiya.dll` |
+
+`PackageContents.xml` versiyaga qarab (SeriesMin/SeriesMax) to'g'ri DLL'ni avtomatik tanlaydi. `Platform="AutoCAD*"` — AutoCAD Mechanical kabi variantlarni ham qamrab oladi.
+
 ## Tuzilma
 
 ```
-Aktivatsiya.bundle/
-├── PackageContents.xml        ← avtoyuklash manifesti
-└── Contents/
-    ├── link.txt               ← ochiladigan havola (shu yerni tahrirlang)
-    └── Aktivatsiya.dll         ← build qilingandan keyin paydo bo'ladi
-
-AktivatsiyaPlugin/             ← manba kod (deploy qilinmaydi)
-├── Aktivatsiya.csproj
+Aktivatsiya.sln                 ← Visual Studio solution
+AktivatsiyaPlugin/              ← manba kod
+├── Aktivatsiya.csproj          ← multi-target: net46 + net8.0-windows
 ├── RibbonAktivatsiya.cs
 └── Properties/AssemblyInfo.cs
+Aktivatsiya.bundle/            ← deploy qilinadigan paket
+├── PackageContents.xml
+└── Contents/
+    ├── link.txt                ← ochiladigan havola (shu yerni tahrirlang)
+    ├── acad-net4/Aktivatsiya.dll   ← build'dan keyin (2018-2024 + Mechanical)
+    └── acad-net8/Aktivatsiya.dll   ← build'dan keyin (2025)
 ```
 
 ## 1. Havolani sozlash
 
-`Aktivatsiya.bundle/Contents/link.txt` faylini oching va ochilishi kerak bo'lgan havolani yozing, masalan:
+`Aktivatsiya.bundle/Contents/link.txt` faylini oching va havolani yozing:
 
 ```
 https://sizning-saytingiz.uz/aktivatsiya
 ```
 
-> Birinchi bo'sh bo'lmagan qator ishlatiladi. Agar `https://` yozilmasa, avtomatik qo'shiladi.
+> Birinchi bo'sh bo'lmagan qator ishlatiladi. `https://` yozilmasa avtomatik qo'shiladi.
+> `link.txt` bitta — ikkala versiya (net4/net8) uchun umumiy (kod uni yuqori papkadan topadi).
 
-## 2. Plaginni build qilish (Aktivatsiya.dll)
+## 2. Build qilish
 
-**Talab:** Visual Studio yoki MSBuild, hamda kompyuterda **AutoCAD o'rnatilgan** bo'lishi (kerakli `.dll`'lar o'sha yerdan olinadi).
+**Talab:** .NET SDK (8.0), va build qilinadigan kompyuterda mos AutoCAD versiyalari o'rnatilgan bo'lishi (kerakli `.dll`'lar o'sha yerdan olinadi).
 
-`AktivatsiyaPlugin` papkasida:
+Solution papkasida:
 
 ```powershell
-msbuild Aktivatsiya.csproj /p:Configuration=Release /p:AcadDir="C:\Program Files\Autodesk\AutoCAD 2024\"
+dotnet build Aktivatsiya.sln -c Release
 ```
 
-- `AcadDir` — o'zingizdagi AutoCAD versiyasiga moslang (masalan `AutoCAD 2023`).
-- Build muvaffaqiyatli bo'lsa, `Aktivatsiya.dll` avtomatik `..\Aktivatsiya.bundle\Contents\` ga chiqadi.
+DLL'lar avtomatik `Aktivatsiya.bundle\Contents\acad-net4\` va `...\acad-net8\` ga chiqadi.
 
-### AutoCAD 2025 va undan yuqori (.NET 8)
+### AutoCAD papkalarini ko'rsatish
 
-AutoCAD 2025+ .NET 8 talab qiladi. `.csproj` dagi `<TargetFrameworkVersion>v4.8</TargetFrameworkVersion>` o'rniga SDK-uslubidagi loyiha ishlating:
+Ko'zda tutilgan yo'llar: `AutoCAD 2018` (net4 uchun) va `AutoCAD 2025` (net8 uchun). Ularni override qilish mumkin:
 
-```xml
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net8.0-windows</TargetFramework>
-    <UseWPF>true</UseWPF>
-    <AssemblyName>Aktivatsiya</AssemblyName>
-    <RootNamespace>Aktivatsiya</RootNamespace>
-    <PlatformTarget>x64</PlatformTarget>
-    <OutputPath>..\Aktivatsiya.bundle\Contents\</OutputPath>
-    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-    <AcadDir>C:\Program Files\Autodesk\AutoCAD 2025\</AcadDir>
-  </PropertyGroup>
-  <ItemGroup>
-    <Reference Include="AcCoreMgd"><HintPath>$(AcadDir)accoremgd.dll</HintPath><Private>false</Private></Reference>
-    <Reference Include="AcDbMgd"><HintPath>$(AcadDir)acdbmgd.dll</HintPath><Private>false</Private></Reference>
-    <Reference Include="AcMgd"><HintPath>$(AcadDir)acmgd.dll</HintPath><Private>false</Private></Reference>
-    <Reference Include="AdWindows"><HintPath>$(AcadDir)AdWindows.dll</HintPath><Private>false</Private></Reference>
-  </ItemGroup>
-</Project>
+```powershell
+dotnet build Aktivatsiya.sln -c Release ^
+  -p:AcadDir="C:\Program Files\Autodesk\AutoCAD 2018\" ^
+  -p:AcadDir2025="C:\Program Files\Autodesk\AutoCAD 2025\"
+```
+
+> **Moslik qoidasi:** .NET Framework DLL'ni **eng eski** qo'llab-quvvatlanadigan versiya (2018) API'siga qarshi qursangiz, u 2018–2024 (va Mechanical 2021) da ishlaydi. Agar bironta versiyada yuklanmasa, `AcadDir`ni o'sha versiyaga o'zgartirib qayta quring.
+
+### Faqat bitta target'ni build qilish
+
+```powershell
+dotnet build AktivatsiyaPlugin\Aktivatsiya.csproj -c Release -f net46            # 2018-2024
+dotnet build AktivatsiyaPlugin\Aktivatsiya.csproj -c Release -f net8.0-windows   # 2025
 ```
 
 ## 3. O'rnatish
 
-Butun **`Aktivatsiya.bundle`** papkasini (ichida `Aktivatsiya.dll` bilan) quyidagi joylardan biriga ko'chiring:
+Butun **`Aktivatsiya.bundle`** papkasini (ichida DLL'lar bilan) quyidagilardan biriga ko'chiring:
 
-- Faqat joriy foydalanuvchi uchun:
-  `%APPDATA%\Autodesk\ApplicationPlugins\`
-- Barcha foydalanuvchilar uchun:
-  `%PROGRAMFILES%\Autodesk\ApplicationPlugins\`
+- Joriy foydalanuvchi: `%APPDATA%\Autodesk\ApplicationPlugins\`
+- Barcha foydalanuvchilar: `%PROGRAMFILES%\Autodesk\ApplicationPlugins\`
 
-So'ng AutoCAD'ni **qayta ishga tushiring**. Lentada **"Aktivatsiya"** tabi va **"Aktivatsiya qilish"** tugmasi paydo bo'ladi.
+So'ng AutoCAD'ni **qayta ishga tushiring** — lentada **"Aktivatsiya"** tabi va **"Aktivatsiya qilish"** tugmasi paydo bo'ladi.
 
 ## 4. Ishlatish
 
 - Lentadagi **"Aktivatsiya qilish"** tugmasini bosing, yoki
 - Buyruq qatoriga **`AKTIVATSIYA`** deb yozing.
 
-Ikkala holatda ham `link.txt` dagi havola brauzerda ochiladi.
+Ikkalasida ham `link.txt` dagi havola brauzerda ochiladi.
 
 ## Tez-tez uchraydigan muammolar
 
 | Muammo | Yechim |
 |--------|--------|
-| Tab ko'rinmayapti | `Aktivatsiya.dll` `Contents` ichida bormi va bundle to'g'ri papkaga ko'chirilganmi tekshiring. AutoCAD qayta ishga tushirilganmi? |
-| Build'da `accoremgd.dll topilmadi` | `AcadDir` yo'lini o'z AutoCAD versiyangizga moslang. |
-| "link.txt topilmadi" | `Contents/link.txt` mavjudligini va havola yozilganini tekshiring. |
-| DLL yuklanmayapti (bloklangan) | DLL xossalaridan (Properties) "Unblock" belgilang yoki `NETLOAD` orqali test qiling. |
+| Tab ko'rinmayapti | Mos DLL (`acad-net4` yoki `acad-net8`) mavjudmi va bundle to'g'ri papkaga ko'chirilganmi? AutoCAD qayta ishga tushirilganmi? |
+| Build: `accoremgd.dll topilmadi` | `AcadDir` / `AcadDir2025` yo'llarini o'z versiyangizga moslang. |
+| Muayyan versiyada yuklanmayapti | `AcadDir`ni o'sha versiyaga qo'yib `net46` target'ni qayta build qiling. |
+| "link.txt topilmadi" | `Contents/link.txt` mavjud va havola yozilganini tekshiring. |
+| DLL bloklangan | DLL xossalaridan "Unblock" belgilang. |

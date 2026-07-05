@@ -115,12 +115,22 @@ namespace Aktivatsiya
             }
         }
 
-        /// <summary>link.txt dagi birinchi bo'sh bo'lmagan qatorni URL sifatida qaytaradi.</summary>
+        /// <summary>
+        /// link.txt dagi birinchi bo'sh bo'lmagan qatorni URL sifatida qaytaradi.
+        /// DLL "Contents/acad-net4" (yoki "acad-net8") ichida, link.txt esa "Contents" da
+        /// bo'lgani uchun faylni yuqori papkalarda ham qidiramiz.
+        /// </summary>
         private static string ReadLink()
         {
             string dir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-            string file = Path.Combine(dir, "link.txt");
-            if (!File.Exists(file)) return null;
+            string file = null;
+            for (int i = 0; i < 4 && !string.IsNullOrEmpty(dir); i++)
+            {
+                string candidate = Path.Combine(dir, "link.txt");
+                if (File.Exists(candidate)) { file = candidate; break; }
+                dir = Path.GetDirectoryName(dir); // bir pog'ona yuqoriga
+            }
+            if (file == null) return null;
 
             string url = File.ReadAllLines(file)
                 .Select(l => l.Trim())
